@@ -14,7 +14,7 @@ route-noexec
 tun-mtu 1400
 pull-filter ignore "tun-mtu"
 pull-filter ignore "block-outside-dns"
-verb 4
+verb 3
 tmp-dir T:
 
 <ca>
