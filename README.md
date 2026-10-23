@@ -17,6 +17,7 @@ For a machine whose original operating system predates modern VPN protocols by d
 | Accelerator / execution environment | PiStorm Classic, Raspberry Pi 3A+, Emu68 |
 | Operating system / TCP/IP stack | AmigaOS 68k, MiamiDX |
 | VPN client | OpenVPN 2.6.23, native Motorola 68k build |
+| VPN server | OpenVPN 2.6.14, x86_64-pc-linux-gnu |
 | Cryptographic integration | AmiSSL v5 / OpenSSL-compatible API |
 | Virtual IP interface | `vpn.device` FIX4, SANA-II, point-to-point IPv4 |
 | Native TUN bridge | openVPN POC4, using `vpn.device` unit 1 |
