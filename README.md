@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="boingvpn.png" alt="AI GENERATED">
+</p>
+
 # openvpn - AI CODED
 A real OpenVPN 2.6.23 client running as a native AmigaOS 68k application
 
