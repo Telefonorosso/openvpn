@@ -1,4 +1,4 @@
-# openvpn
+# openvpn - AI CODED
 A real OpenVPN 2.6.23 client running as a native AmigaOS 68k application
 
 Openvpn has reached the point this project was created to reach: **a real 2.6.23 client, running as a native AmigaOS 68k application, transporting ordinary IP packets through a modern encrypted tunnel.**
