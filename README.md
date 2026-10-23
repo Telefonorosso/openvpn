@@ -1,7 +1,7 @@
 # openvpn
 A real OpenVPN 2.6.23 client running as a native AmigaOS 68k application
 
-AmiOpenVPN has reached the point this project was created to reach: **a real OpenVPN 2.6.23 client, running as a native AmigaOS 68k application, transporting ordinary IP packets through a modern encrypted tunnel.**
+Openvpn has reached the point this project was created to reach: **a real 2.6.23 client, running as a native AmigaOS 68k application, transporting ordinary IP packets through a modern encrypted tunnel.**
 
 This is no longer merely a successful cross-compilation, a working `openvpn --version`, a UDP probe, a TLS handshake, or a simulated SANA-II interface. On real Amiga hardware, MiamiDX exchanges IPv4 packets with a native OpenVPN process through `vpn.device`. OpenVPN encrypts those packets and carries them over UDP to a Linux peer. The reverse path also works.
 
@@ -19,7 +19,7 @@ For a machine whose original operating system predates modern VPN protocols by d
 | VPN client | OpenVPN 2.6.23, native Motorola 68k build |
 | Cryptographic integration | AmiSSL v5 / OpenSSL-compatible API |
 | Virtual IP interface | `vpn.device` FIX4, SANA-II, point-to-point IPv4 |
-| Native TUN bridge | AmiOpenVPN POC4, using `vpn.device` unit 1 |
+| Native TUN bridge | openVPN POC4, using `vpn.device` unit 1 |
 | Validated remote peers | Linux laboratory server; AWS-hosted OpenVPN server |
 
 **No Linux VPN daemon runs on the PiStorm Raspberry Pi on behalf of the Amiga.** The OpenVPN application, its protocol state machine, and its cryptographic processing run in the AmigaOS 68k environment, accelerated by Emu68.
@@ -29,8 +29,8 @@ For a machine whose original operating system predates modern VPN protocols by d
 The design deliberately keeps the responsibilities separate:
 
 1. **MiamiDX** owns the Amiga's network stack and exposes a point-to-point interface, `ptp0`.
-2. **`vpn.device` FIX4** provides a genuine bidirectional SANA-II packet transport: MiamiDX opens **unit 0**, while AmiOpenVPN opens **unit 1**.
-3. **AmiOpenVPN POC4** implements the Amiga-specific TUN backend. It reads plaintext IPv4 datagrams from unit 1 and supplies decrypted datagrams in the opposite direction.
+2. **`vpn.device` FIX4** provides a genuine bidirectional SANA-II packet transport: MiamiDX opens **unit 0**, while openVPN opens **unit 1**.
+3. **openVPN POC4** implements the Amiga-specific TUN backend. It reads plaintext IPv4 datagrams from unit 1 and supplies decrypted datagrams in the opposite direction.
 4. **OpenVPN 2.6.23 and AmiSSL** handle the standard TLS and data-channel cryptography. The encrypted outer connection uses MiamiDX's normal BSD socket networking.
 5. **The Linux or AWS OpenVPN server** terminates the UDP tunnel and delivers packets to its native TUN interface.
 
@@ -104,7 +104,7 @@ These limitations do not diminish the milestone; they define a stable boundary f
 
 ### Why this milestone matters
 
-AmiOpenVPN began with an ambitious question: **could a classic Amiga participate directly in today's encrypted networks without outsourcing the VPN to a modern operating system?**
+openVPN began with an ambitious question: **could a classic Amiga participate directly in today's encrypted networks without outsourcing the VPN to a modern operating system?**
 
 An Amiga 600 running AmigaOS and MiamiDX now establishes a standards-based, authenticated OpenVPN connection, exchanges real IP packets through a native SANA-II interface, reaches a server across the Internet, and serves files through that encrypted path. The work bridges a classic operating system's device and networking model with a contemporary security protocol — while keeping both sides recognizably themselves.
 
