@@ -1,7 +1,7 @@
 client
 dev tun
 proto udp
-remote 52.47.87.31 1194
+remote aws.server.ip 1194
 resolv-retry infinite
 nobind
 persist-key
