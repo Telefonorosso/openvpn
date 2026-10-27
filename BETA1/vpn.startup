@@ -1,2 +1,0 @@
-stack 262144
-OPENVPN:openvpn --config OPENVPN:AWS.ovpn >>RAM:openvpn.log
