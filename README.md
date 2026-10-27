@@ -12,8 +12,6 @@ The client runs **as a native Motorola 68k AmigaOS process**, using **AmiSSL v5*
 
 The current implementation has been exercised on a real **Amiga 600 with PiStorm Classic, Raspberry Pi 3A+, Emu68, and MiamiDX**, against both a Linux laboratory server and an Internet-hosted AWS OpenVPN server. It supports IPv4 full-tunnel routing through native AmigaDOS lifecycle scripts and can obtain the physical network's default gateway directly from MiamiDX.
 
-> **Project status — October 27, 2026:** hardware-validated IPv4 VPN client, SANA-II transport, authenticated TLS sessions, Internet HTTP transfers, MiamiDX full-tunnel routing, script-driven interface/DNS control, and native IPv4 default-gateway discovery. This is an experimental native port, not a claim of exhaustive compatibility or production security certification.
-
 ## Validated environment
 
 | Component | Implementation |
