@@ -72,15 +72,6 @@ Hardware testing confirmed name resolution through the VPN DNS server. In the ob
 
 ## Real-hardware results
 
-### Encrypted network connectivity
-
-- Authenticated TLS 1.3 sessions completed against a Linux OpenVPN peer and an AWS-hosted server.
-- Real AmigaOS-originated IPv4 traffic crossed `ptp0`, `vpn.device`, the encrypted UDP transport, and the remote Linux TUN interface; replies returned over the same path.
-- Bidirectional ICMP succeeded in the laboratory, including **10.77.0.1 ↔ 10.77.0.2** with no reported packet loss.
-- The AWS test used a server-assigned VPN address in the **10.8.0.x** network; both ICMP and application-level HTTP traffic worked.
-- Full-tunnel IPv4 routes, server endpoint protection, and cleanup scripts were exercised on the Amiga.
-- MiamiDX DNS reconfiguration was tested live without restarting MiamiDX or reconnecting the established VPN.
-
 ### HTTP throughput across the encrypted Internet tunnel
 
 An unmodified native AmigaOS `usbnethttp` server delivered a **16 MiB** in-memory file to an AWS client over the VPN. Only the HTTP server's send-chunk size changed between runs; these are **end-to-end application payload measurements**, not synthetic cipher benchmarks.
