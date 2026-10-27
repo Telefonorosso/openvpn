@@ -31,28 +31,6 @@ The current implementation has been exercised on a real **Amiga 600 with PiStorm
 
 ## Architecture
 
-```text
-  AmigaOS applications (iBrowse, curl, ping, HTTP server, ...)
-                              |
-                        MiamiDX TCP/IP
-                              |
-                      ptp0 / SANA-II
-                              |
-                       vpn.device
-                  unit 0 <--> unit 1
-                              |
-                     AmiOpenVPN 2.6.23
-                TLS / X.509 / AES-GCM / TUN
-                              |
-                       bsdsocket.library
-                              |
-                Physical network interface
-                              |
-                       UDP / Internet
-                              |
-                 OpenVPN server / Linux TUN
-```
-
 **MiamiDX remains the system TCP/IP stack.** It manages sockets, interfaces, routes, and DNS. The SANA-II driver transports packets but performs no encryption; OpenVPN handles the VPN protocol and cryptography. The remote server is a standard OpenVPN peer, not a custom Amiga gateway.
 
 The device provides two complementary interfaces:
@@ -86,40 +64,11 @@ OpenVPN variables are made available to the scripts as **local AmigaDOS environm
 
 This preserves the original OpenVPN approach: networking policy belongs in configurable hooks rather than in hardcoded application-specific behavior.
 
-### IPv4 full tunnel and server-route protection
-
-The hardware-tested MiamiDX scripts provide a full IPv4 tunnel using two `/1` routes:
-
-```text
-0.0.0.0/1       via VPN gateway
-128.0.0.0/1     via VPN gateway
-```
-
-They also add a **host route to the OpenVPN server's public address over the physical gateway**. This prevents the encrypted UDP transport from being sent back into its own tunnel. Teardown removes those routes and the installed DNS firewall rule.
-
-Server-pushed tunnel addresses have been applied to `ptp0` at runtime, including different client addresses on successive connections. Full-tunnel routing and its cleanup were verified on real hardware using traceroute and connectivity tests.
-
-The current scripts use `ifconfig-noexec` and `route-noexec`, leaving interface and route changes to MiamiDX-native tools (`MiamiIfConfig` and `MiamiRoute`) rather than expecting Unix TUN configuration commands to exist on AmigaOS.
-
 ### DNS over the VPN
 
 MiamiDX can change its resolver configuration while the tunnel remains active. The validated integration uses the DNS information delivered through the OpenVPN connection, updates MiamiDX's DNS settings through its native change mechanism, and installs a `MiamiIPFW` rule restricting **outbound IPv4 UDP/53** queries to the selected VPN resolver.
 
 Hardware testing confirmed name resolution through the VPN DNS server. In the observed packet captures, the physical interface carried OpenVPN UDP transport and no plaintext DNS leakage was observed. These tests are evidence of the tested configuration, **not a guarantee against every DNS leak path**. In particular, the supplied firewall rule does not cover TCP/53, IPv6, or arbitrary encrypted DNS protocols, and automatic restoration of the previous DNS configuration is not yet complete.
-
-### Native default-gateway discovery
-
-AmiOpenVPN can inspect MiamiDX's IPv4 routing information **without invoking `MiamiRoute`, running ARexx, or parsing command output**. Its `get_default_gateway()` backend uses a `bsdsocket.library` `PF_ROUTE` socket and MiamiDX's version-4 `RTM_GET` message format, with explicit response validation.
-
-Run:
-
-```text
-openvpn --show-gateway
-```
-
-On the validated Amiga, with `eth0` ONLINE and `ptp0` DOWN, this correctly identified the physical router at **192.168.1.1**. This operation is read-only and leaves the gateway undefined when a valid default route cannot be confirmed.
-
-**Scope:** native gateway discovery is hardware-validated. Automatically feeding this new result through the complete full-tunnel script lifecycle still requires end-to-end validation. The current routing-socket ABI is specific to MiamiDX; Roadshow, AmiTCP/Genesis, and other stacks have not been confirmed compatible.
 
 ## Real-hardware results
 
@@ -181,16 +130,6 @@ Start from an AmigaDOS Shell with sufficient stack space:
 Stack 262144
 OPENVPN:openvpn --config OPENVPN:client.ovpn
 ```
-
-For live Shell log capture, the tested AmigaDOS redirection is:
-
-```text
-OPENVPN:openvpn --config OPENVPN:client.ovpn >>RAM:openvpn.log
-```
-
-For a gateway-only diagnostic, run `openvpn --show-gateway` **before** bringing the VPN full tunnel online, so that the physical default route is unambiguous.
-
-`ptp0` may also be brought online or offline via MiamiDX's ARexx interface; this is an optional Workbench convenience, not a dependency of the VPN protocol engine.
 
 ## Compatibility and known limitations
 
