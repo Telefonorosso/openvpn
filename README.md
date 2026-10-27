@@ -50,7 +50,7 @@ This is an **IPv4 layer-3 tunnel**. There is no Ethernet emulation, ARP bridge, 
 - Hostname resolution through the TCP/IP stack's `gethostbyname()` implementation, as well as numeric IPv4 server addresses.
 - Usable standard log verbosity, including `verb 4` and `verb 5`; optional Amiga-specific diagnostics via `aovpn-diagnostics`.
 
-### Native AmigaDOS integration
+### Native AmigaDOS 3.1 integration
 
 AmiOpenVPN supports OpenVPN's familiar lifecycle hooks through a native AmigaDOS script executor. The validated workflow uses:
 
