@@ -2,16 +2,18 @@
 Echo "[ROUTE-UP] BEGIN"
 FailAt 21
 
+; Ask for physical gateway only if automatic discovery failed
+If "${route_net_gateway}" EQ ""
+SetEnv route_net_gateway `OPENVPN:RequestString TITLE Warning BODY "Cannot determine default gateway, please enter one"`
+EndIf
+
 ; Protect the OpenVPN server endpoint via physical gateway
 Echo "[ROUTE-UP] Adding host route: ${trusted_ip} via ${route_net_gateway}"
 MIAMI:MiamiRoute -n add -host ${trusted_ip} ${route_net_gateway}
 
-; Route upper half of IPv4 through VPN
-Echo "[ROUTE-UP] Adding 128.0.0.0/1 via ${route_vpn_gateway}"
+; Route all IPv4 address space through the VPN
+Echo "[ROUTE-UP] Adding 0.0.0.0/0 via ${route_vpn_gateway}"
 MIAMI:MiamiRoute -n add -net 128.0.0.0 -netmask 128.0.0.0 ${route_vpn_gateway}
-
-; Route lower half of IPv4 through VPN
-Echo "[ROUTE-UP] Adding 0.0.0.0/1 via ${route_vpn_gateway}"
 MIAMI:MiamiRoute -n add -net 0.0.0.0 -netmask 128.0.0.0 ${route_vpn_gateway}
 
 ; Extract pushed DNS address
@@ -29,9 +31,6 @@ Echo "ADD dns `Type T:vpndns` (ptp0)" >ENVARC:MiamiChangeDB
 ; Apply DNS database changes through ARexx
 Echo "[ROUTE-UP] Applying MiamiDX CHANGEDB"
 rx "address MIAMI.1;CHANGEDB"
-
-; Remove temporary DNS file
-Echo "[ROUTE-UP] Removing T:vpndns"
 Delete T:vpndns
 
 Echo "[ROUTE-UP] END"
