@@ -1,16 +1,21 @@
-; AmiOpenVPN POC5-D - Full Tunnel RoutePreDown
-; AWS / MiamiDX / IPv4
+; Start script and allow non-fatal command errors
+Echo "[PRE-DOWN] BEGIN"
+FailAt 21
 
-Echo "POC5-D: Removing full tunnel routes"
-
-; Remove VPN routes
+; Remove lower half IPv4 VPN route
+Echo "[PRE-DOWN] Removing 0.0.0.0/1 via ${route_vpn_gateway}"
 MIAMI:MiamiRoute -n delete -net 0.0.0.0 -netmask 128.0.0.0 ${route_vpn_gateway}
 
+; Remove upper half IPv4 VPN route
+Echo "[PRE-DOWN] Removing 128.0.0.0/1 via ${route_vpn_gateway}"
 MIAMI:MiamiRoute -n delete -net 128.0.0.0 -netmask 128.0.0.0 ${route_vpn_gateway}
 
-; Remove the physical endpoint protection route
+; Remove physical OpenVPN server endpoint route
+Echo "[PRE-DOWN] Removing host route: ${trusted_ip} via ${route_net_gateway}"
 MIAMI:MiamiRoute -n delete -host ${trusted_ip} ${route_net_gateway}
 
+; Remove DNS leak protection rule
+Echo "[PRE-DOWN] Removing MiamiIPFW rule 60010"
 MIAMI:MiamiIPFW delete 60010
 
-Echo "POC5-D: Full tunnel routes removed"
+Echo "[PRE-DOWN] END"

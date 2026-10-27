@@ -1,7 +1,10 @@
 .KEY dev,mtu,link_mtu,local,remote,context
-Echo "AOVPN POC5-B: up reached"
-Echo "Local IP: <local>"
-Echo "Netmask: <remote>"
-Echo "VPN gateway: ${route_vpn_gateway}"
+; Start script and allow non-fatal command errors
+Echo "[UP] BEGIN - dev=<dev> local=<local> gateway=${route_vpn_gateway}"
+FailAt 21
+
+; Configure MiamiDX point-to-point interface
+Echo "[UP] Configuring ptp0: <local> -> ${route_vpn_gateway}"
 MIAMI:MiamiIfConfig ptp0 inet <local> ${route_vpn_gateway}
-Echo "AOVPN POC5-B: MiamiIfConfig completed"
+
+Echo "[UP] END"
