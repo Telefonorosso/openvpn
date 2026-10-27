@@ -18,7 +18,7 @@ The current implementation has been exercised on a real **Amiga 600 with PiStorm
 | --- | --- |
 | Computer | Commodore Amiga 600 |
 | Acceleration | PiStorm Classic, Raspberry Pi 3A+, Emu68 |
-| Operating system | AmigaOS 68k |
+| Operating system | AmigaOS 3.1 |
 | TCP/IP stack | MiamiDX |
 | Client | OpenVPN 2.6.23, native Motorola 68k executable |
 | Cryptography | AmiSSL v5, OpenSSL-compatible interface |
