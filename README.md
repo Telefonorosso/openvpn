@@ -4,7 +4,7 @@
 
 # openvpn - AI CODED
 
-**OpenVPN 2.6.23 for AmigaOS 68k — AI-coded, native, and hardware-validated.**
+**OpenVPN 2.6.23 for AmigaOS 68k.**
 
 AmiOpenVPN brings a full OpenVPN client to classic AmigaOS. It establishes authenticated, encrypted VPN sessions, exchanges ordinary IPv4 packets with the Amiga's own TCP/IP stack, and can route everyday application traffic through a remote OpenVPN server on the Internet.
 
