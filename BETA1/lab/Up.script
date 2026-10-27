@@ -1,0 +1,7 @@
+.KEY dev,mtu,link_mtu,local,remote,context
+Echo "AOVPN POC5-B: up reached"
+Echo "Local IP: <local>"
+Echo "Netmask: <remote>"
+Echo "VPN gateway: ${route_vpn_gateway}"
+MIAMI:MiamiIfConfig ptp0 inet <local> ${route_vpn_gateway}
+Echo "AOVPN POC5-B: MiamiIfConfig completed"

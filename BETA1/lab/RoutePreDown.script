@@ -1,0 +1,16 @@
+; AmiOpenVPN POC5-D - Full Tunnel RoutePreDown
+; AWS / MiamiDX / IPv4
+
+Echo "POC5-D: Removing full tunnel routes"
+
+; Remove VPN routes
+MIAMI:MiamiRoute -n delete -net 0.0.0.0 -netmask 128.0.0.0 ${route_vpn_gateway}
+
+MIAMI:MiamiRoute -n delete -net 128.0.0.0 -netmask 128.0.0.0 ${route_vpn_gateway}
+
+; Remove the physical endpoint protection route
+MIAMI:MiamiRoute -n delete -host ${trusted_ip} ${route_net_gateway}
+
+MIAMI:MiamiIPFW delete 60010
+
+Echo "POC5-D: Full tunnel routes removed"

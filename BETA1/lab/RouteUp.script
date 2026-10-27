@@ -1,0 +1,21 @@
+; AmiOpenVPN POC5-D - Full Tunnel RouteUp
+; AWS / MiamiDX / IPv4
+
+Echo "POC5-D: Installing full tunnel routes"
+
+; Protect the OpenVPN server endpoint via physical gateway
+MIAMI:MiamiRoute -n add -host ${trusted_ip} ${route_net_gateway}
+
+; Route upper half of IPv4 through VPN
+MIAMI:MiamiRoute -n add -net 128.0.0.0 -netmask 128.0.0.0 ${route_vpn_gateway}
+
+; Route lower half of IPv4 through VPN
+MIAMI:MiamiRoute -n add -net 0.0.0.0 -netmask 128.0.0.0 ${route_vpn_gateway}
+
+rx "ip=word(arg(1),3); if datatype(left(ip,1),'N') then say ip" ${foreign_option_1} >T:vpndns
+MIAMI:MiamiIPFW add 60010 deny udp from any to not `Type T:vpndns` 53 out
+Echo "ADD dns `Type T:vpndns` (ptp0)" >ENVARC:MiamiChangeDB
+rx "address MIAMI.1;CHANGEDB"
+Delete T:vpndns QUIET
+
+Echo "POC5-D: Full tunnel routes installed"

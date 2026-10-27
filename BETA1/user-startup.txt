@@ -1,0 +1,3 @@
+;BEGIN openvpn
+assign OPENVPN: Works:lab
+;END openvpn
