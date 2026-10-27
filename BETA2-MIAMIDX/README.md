@@ -8,7 +8,7 @@ Copy the following files and directories to their respective AmigaOS locations:
 | `vpn.shutdown` | `S:` |
 | `vpn.device` | `DEVS:Networks/` |
 | `openvpn.miami` | `MIAMI:` |
-| `PTP-Toggle.rexx` and its `.info` icon | Any directory of your choice |
+| `PTP0-Toggle.rexx` and its `.info` icon | Any directory of your choice |
 | `OpenVPN/` directory | Any location of your choice |
 
 Add the following assignment to `S:User-Startup`, replacing the placeholder with the actual location of the `OpenVPN` directory:
@@ -19,7 +19,7 @@ Assign OPENVPN: <path-to-OpenVPN-directory>
 
 ### Starting and Stopping the VPN
 
-`PTP-Toggle.rexx` provides a convenient way to **start and stop the VPN** directly from Workbench.
+`PTP0-Toggle.rexx` provides a convenient way to **start and stop the VPN** directly from Workbench.
 
 The same result can be achieved manually through MiamiDX by bringing the `ptp0` interface **ONLINE** to start the VPN or **OFFLINE** to stop it.
 
