@@ -1,0 +1,3 @@
+;BEGIN openvpn
+assign OPENVPN: [openvpn folder location]
+;END openvpn

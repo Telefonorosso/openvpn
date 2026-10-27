@@ -1,0 +1,2 @@
+Status >T:vpn.cli COMMAND=OPENVPN:openvpn
+Break `type T:vpn.cli`

@@ -1,0 +1,2 @@
+stack 262144
+OPENVPN:openvpn --config OPENVPN:amiga-noinline.ovpn >>RAM:openvpn.log
