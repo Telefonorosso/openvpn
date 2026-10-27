@@ -1,115 +1,213 @@
 <p align="center">
-  <img src="boingvpn.png" alt="AI GENERATED">
+  <img src="boingvpn.png" alt="AmiOpenVPN logo">
 </p>
 
-# openvpn - AI CODED
-A real OpenVPN 2.6.23 client running as a native AmigaOS 68k application
+# AmiOpenVPN
 
-Openvpn has reached the point this project was created to reach: **a real 2.6.23 client, running as a native AmigaOS 68k application, transporting ordinary IP packets through a modern encrypted tunnel.**
+**OpenVPN 2.6.23 for AmigaOS 68k — AI-coded, native, and hardware-validated.**
 
-This is no longer merely a successful cross-compilation, a working `openvpn --version`, a UDP probe, a TLS handshake, or a simulated SANA-II interface. On real Amiga hardware, MiamiDX exchanges IPv4 packets with a native OpenVPN process through `vpn.device`. OpenVPN encrypts those packets and carries them over UDP to a Linux peer. The reverse path also works.
+AmiOpenVPN brings a full OpenVPN client to classic AmigaOS. It establishes authenticated, encrypted VPN sessions, exchanges ordinary IPv4 packets with the Amiga's own TCP/IP stack, and can route everyday application traffic through a remote OpenVPN server on the Internet.
 
-The same POC4 executable and FIX4 device were then connected to an **AWS-hosted OpenVPN server without recompiling or patching either binary**. Bidirectional ICMP succeeded, and a native AmigaOS HTTP server delivered a **16 MiB file across the encrypted Internet tunnel**.
+The client runs **as a native Motorola 68k AmigaOS process**, using **AmiSSL v5** for cryptography, **MiamiDX** for networking, and a **SANA-II `vpn.device`** to connect the TCP/IP stack to OpenVPN's TUN data path. Nothing is proxied through a VPN daemon on the PiStorm Raspberry Pi: OpenVPN's protocol engine, TLS processing, and data-channel cryptography all execute in the AmigaOS environment.
 
-For a machine whose original operating system predates modern VPN protocols by decades, this is a particularly meaningful boundary to cross: the Amiga is a genuine endpoint in the secure network, not a terminal attached to a VPN running somewhere else.
+The current implementation has been exercised on a real **Amiga 600 with PiStorm Classic, Raspberry Pi 3A+, Emu68, and MiamiDX**, against both a Linux laboratory server and an Internet-hosted AWS OpenVPN server. It supports IPv4 full-tunnel routing through native AmigaDOS lifecycle scripts and can obtain the physical network's default gateway directly from MiamiDX.
 
-### The validated platform
+> **Project status — October 27, 2026:** hardware-validated IPv4 VPN client, SANA-II transport, authenticated TLS sessions, Internet HTTP transfers, MiamiDX full-tunnel routing, script-driven interface/DNS control, and native IPv4 default-gateway discovery. This is an experimental native port, not a claim of exhaustive compatibility or production security certification.
+
+## Validated environment
 
 | Component | Implementation |
 | --- | --- |
-| Physical computer | Commodore Amiga 600 |
-| Accelerator / execution environment | PiStorm Classic, Raspberry Pi 3A+, Emu68 |
-| Operating system / TCP/IP stack | AmigaOS 68k, MiamiDX |
-| VPN client | OpenVPN 2.6.23, native Motorola 68k build |
-| VPN server | OpenVPN 2.6.14, x86_64-pc-linux-gnu |
-| Cryptographic integration | AmiSSL v5 / OpenSSL-compatible API |
-| Virtual IP interface | `vpn.device` FIX4, SANA-II, point-to-point IPv4 |
-| Native TUN bridge | openVPN POC4, using `vpn.device` unit 1 |
-| Validated remote peers | Linux laboratory server; AWS-hosted OpenVPN server |
+| Computer | Commodore Amiga 600 |
+| Acceleration | PiStorm Classic, Raspberry Pi 3A+, Emu68 |
+| Operating system | AmigaOS 68k |
+| TCP/IP stack | MiamiDX |
+| Client | OpenVPN 2.6.23, native Motorola 68k executable |
+| Cryptography | AmiSSL v5, OpenSSL-compatible interface |
+| Virtual network interface | `vpn.device`, SANA-II point-to-point IPv4 |
+| MiamiDX interface | `ptp0` (device unit 0) |
+| OpenVPN TUN interface | `vpn.device` unit 1 |
+| Validated servers | OpenVPN on Linux and AWS (OpenVPN 2.6.14 in the documented tests) |
 
-**No Linux VPN daemon runs on the PiStorm Raspberry Pi on behalf of the Amiga.** The OpenVPN application, its protocol state machine, and its cryptographic processing run in the AmigaOS 68k environment, accelerated by Emu68.
+## Architecture
 
-### Architecture: one IP path, two SANA-II units
+```text
+  AmigaOS applications (iBrowse, curl, ping, HTTP server, ...)
+                              |
+                        MiamiDX TCP/IP
+                              |
+                      ptp0 / SANA-II
+                              |
+                       vpn.device
+                  unit 0 <--> unit 1
+                              |
+                     AmiOpenVPN 2.6.23
+                TLS / X.509 / AES-GCM / TUN
+                              |
+                       bsdsocket.library
+                              |
+                Physical network interface
+                              |
+                       UDP / Internet
+                              |
+                 OpenVPN server / Linux TUN
+```
 
-The design deliberately keeps the responsibilities separate:
+**MiamiDX remains the system TCP/IP stack.** It manages sockets, interfaces, routes, and DNS. The SANA-II driver transports packets but performs no encryption; OpenVPN handles the VPN protocol and cryptography. The remote server is a standard OpenVPN peer, not a custom Amiga gateway.
 
-1. **MiamiDX** owns the Amiga's network stack and exposes a point-to-point interface, `ptp0`.
-2. **`vpn.device` FIX4** provides a genuine bidirectional SANA-II packet transport: MiamiDX opens **unit 0**, while openVPN opens **unit 1**.
-3. **openVPN POC4** implements the Amiga-specific TUN backend. It reads plaintext IPv4 datagrams from unit 1 and supplies decrypted datagrams in the opposite direction.
-4. **OpenVPN 2.6.23 and AmiSSL** handle the standard TLS and data-channel cryptography. The encrypted outer connection uses MiamiDX's normal BSD socket networking.
-5. **The Linux or AWS OpenVPN server** terminates the UDP tunnel and delivers packets to its native TUN interface.
+The device provides two complementary interfaces:
 
-Only **raw IPv4 datagrams** cross the virtual device boundary: there is no Ethernet emulation, ARP layer, or artificial PPP negotiation. The SANA-II interface retains point-to-point semantics; FIX4 handles MiamiDX's PPP IPv4 packet type `0x0021`, while the native OpenVPN bridge uses IPv4 type `0x0800`.
+- **Unit 0:** used by MiamiDX as `ptp0`; its point-to-point packet format includes the PPP IPv4 protocol identifier `0x0021`.
+- **Unit 1:** used by AmiOpenVPN's TUN backend to exchange raw IPv4 packets (protocol type `0x0800`).
 
-This separation is one of the project's most important engineering decisions. `vpn.device` does not implement encryption. OpenVPN does not replace MiamiDX. The PiStorm does not masquerade as a separate network host. Each component has one clearly defined role.
+This is an **IPv4 layer-3 tunnel**. There is no Ethernet emulation, ARP bridge, TAP interface, or PPP session negotiation inside the VPN.
 
+## Current capabilities
 
-### Hardware validation I — encrypted Linux laboratory tunnel
+### Standards-based encrypted VPN sessions
 
-The first complete POC4 tunnel connected the Amiga's MiamiDX `ptp0` endpoint at **10.77.0.1** to Linux `tun0` at **10.77.0.2**, using an OpenVPN UDP session on port 1194.
+- Native OpenVPN 2.6.23 client with conventional `.ovpn` configurations.
+- UDP transport over MiamiDX `bsdsocket.library`.
+- Certificate-based server authentication and TLS 1.3 in the validated sessions.
+- `tls-crypt`, certificate/key files, and inline credential blocks in the tested configurations.
+- Negotiated AES-GCM data channels: AES-128-GCM in the laboratory test and AES-256-GCM on AWS.
+- Hostname resolution through the TCP/IP stack's `gethostbyname()` implementation, as well as numeric IPv4 server addresses.
+- Usable standard log verbosity, including `verb 4` and `verb 5`; optional Amiga-specific diagnostics via `aovpn-diagnostics`.
 
-The OpenVPN session completed authenticated TLS negotiation. The observed laboratory configuration used:
+### Native AmigaDOS integration
 
-| Layer | Verified result |
-| --- | --- |
-| TLS control channel | TLS 1.3 |
-| TLS cipher suite | `TLS_AES_256_GCM_SHA384` |
-| Key agreement | X25519 |
-| Authentication | X.509 certificate verification |
-| VPN data channel | AES-128-GCM in the laboratory session |
-| TUN payload | IPv4, 1400-byte interface MTU |
+AmiOpenVPN supports OpenVPN's familiar lifecycle hooks through a native AmigaDOS script executor. The validated workflow uses:
 
-Linux `tcpdump` captured ICMP Echo Requests and Echo Replies on `tun0`, and the physical network carried OpenVPN UDP traffic between the endpoints. Bidirectional ping **10.77.0.1 ↔ 10.77.0.2** succeeded with no reported loss.
+- `up` to configure the address of MiamiDX `ptp0` from VPN-provided values;
+- `route-up` to install tunnel routing, maintain a physical route to the VPN server, and apply DNS policy;
+- `route-pre-down` to remove the installed VPN routes and DNS firewall rule during teardown.
 
-The essential result was not simply `Initialization Sequence Completed`. **Real AmigaOS-generated IP traffic reached the remote Linux TUN endpoint through OpenVPN and received real replies.**
+OpenVPN variables are made available to the scripts as **local AmigaDOS environment variables**, then the calling process's previous variables are restored. Useful values include `ifconfig_local`, `route_vpn_gateway`, `trusted_ip`, `route_net_gateway`, and pushed DNS options such as `foreign_option_1`. Scripts run synchronously using `C:Execute`, subject to `script-security 2` and restricted script-path/argument validation.
 
-### Hardware validation II — the same binaries, now over the Internet
+This preserves the original OpenVPN approach: networking policy belongs in configurable hooks rather than in hardcoded application-specific behavior.
 
-The next test was more consequential. The already validated POC4 OpenVPN executable and `vpn.device` FIX4 were used against an **AWS OpenVPN server**. This was a configuration/integration exercise, **not a new build**.
+### IPv4 full tunnel and server-route protection
 
-The AWS connection authenticated successfully, negotiated a **TLS 1.3** session and an **AES-256-GCM VPN data channel**, and established the SANA-II-backed tunnel. The AWS configuration assigned the client **10.8.0.15/24**, with a tunnel gateway at **10.8.0.1**. Bidirectional ICMP between the Amiga and the AWS endpoint succeeded.
+The hardware-tested MiamiDX scripts provide a full IPv4 tunnel using two `/1` routes:
 
-This matters because it moves the validation beyond a controlled LAN with a directly attached test server. The same AmigaOS implementation interoperated with a remote Internet-hosted OpenVPN endpoint using normal OpenVPN protocols and credentials.
+```text
+0.0.0.0/1       via VPN gateway
+128.0.0.0/1     via VPN gateway
+```
 
-### Hardware validation III — real encrypted HTTP traffic
+They also add a **host route to the OpenVPN server's public address over the physical gateway**. This prevents the encrypted UDP transport from being sent back into its own tunnel. Teardown removes those routes and the installed DNS firewall rule.
 
-Finally, the tunnel carried application data rather than just diagnostic ICMP.
+Server-pushed tunnel addresses have been applied to `ptp0` at runtime, including different client addresses on successive connections. Full-tunnel routing and its cleanup were verified on real hardware using traceroute and connectivity tests.
 
-The original native AmigaOS **`usbnethttp` HTTP server** served **16 MiB from Amiga to AWS**, where `curl` measured the received HTTP payload throughput. The VPN executable and driver were left unchanged; the variable in this comparison was the HTTP server's application send-chunk size.
+The current scripts use `ifconfig-noexec` and `route-noexec`, leaving interface and route changes to MiamiDX-native tools (`MiamiIfConfig` and `MiamiRoute`) rather than expecting Unix TUN configuration commands to exist on AmigaOS.
 
-| HTTP send chunk | AWS `curl` download speed | Effective payload rate | Approx. time for 16 MiB |
+### DNS over the VPN
+
+MiamiDX can change its resolver configuration while the tunnel remains active. The validated integration uses the DNS information delivered through the OpenVPN connection, updates MiamiDX's DNS settings through its native change mechanism, and installs a `MiamiIPFW` rule restricting **outbound IPv4 UDP/53** queries to the selected VPN resolver.
+
+Hardware testing confirmed name resolution through the VPN DNS server. In the observed packet captures, the physical interface carried OpenVPN UDP transport and no plaintext DNS leakage was observed. These tests are evidence of the tested configuration, **not a guarantee against every DNS leak path**. In particular, the supplied firewall rule does not cover TCP/53, IPv6, or arbitrary encrypted DNS protocols, and automatic restoration of the previous DNS configuration is not yet complete.
+
+### Native default-gateway discovery
+
+AmiOpenVPN can inspect MiamiDX's IPv4 routing information **without invoking `MiamiRoute`, running ARexx, or parsing command output**. Its `get_default_gateway()` backend uses a `bsdsocket.library` `PF_ROUTE` socket and MiamiDX's version-4 `RTM_GET` message format, with explicit response validation.
+
+Run:
+
+```text
+openvpn --show-gateway
+```
+
+On the validated Amiga, with `eth0` ONLINE and `ptp0` DOWN, this correctly identified the physical router at **192.168.1.1**. This operation is read-only and leaves the gateway undefined when a valid default route cannot be confirmed.
+
+**Scope:** native gateway discovery is hardware-validated. Automatically feeding this new result through the complete full-tunnel script lifecycle still requires end-to-end validation. The current routing-socket ABI is specific to MiamiDX; Roadshow, AmiTCP/Genesis, and other stacks have not been confirmed compatible.
+
+## Real-hardware results
+
+### Encrypted network connectivity
+
+- Authenticated TLS 1.3 sessions completed against a Linux OpenVPN peer and an AWS-hosted server.
+- Real AmigaOS-originated IPv4 traffic crossed `ptp0`, `vpn.device`, the encrypted UDP transport, and the remote Linux TUN interface; replies returned over the same path.
+- Bidirectional ICMP succeeded in the laboratory, including **10.77.0.1 ↔ 10.77.0.2** with no reported packet loss.
+- The AWS test used a server-assigned VPN address in the **10.8.0.x** network; both ICMP and application-level HTTP traffic worked.
+- Full-tunnel IPv4 routes, server endpoint protection, and cleanup scripts were exercised on the Amiga.
+- MiamiDX DNS reconfiguration was tested live without restarting MiamiDX or reconnecting the established VPN.
+
+### HTTP throughput across the encrypted Internet tunnel
+
+An unmodified native AmigaOS `usbnethttp` server delivered a **16 MiB** in-memory file to an AWS client over the VPN. Only the HTTP server's send-chunk size changed between runs; these are **end-to-end application payload measurements**, not synthetic cipher benchmarks.
+
+| HTTP send chunk | AWS `curl` receive speed | Payload rate | Transfer time |
 | --- | ---: | ---: | ---: |
-| 8,192 bytes | 294,055 B/s | 2.35 Mbit/s | 57 s |
-| 32,768 bytes | 327,130 B/s | 2.62 Mbit/s | 51 s |
-| **65,536 bytes** | **357,107 B/s** | **2.86 Mbit/s** | **47 s** |
+| 8 KiB | 294,055 B/s | 2.35 Mbit/s | ~57 s |
+| 32 KiB | 327,130 B/s | 2.62 Mbit/s | ~51 s |
+| **64 KiB** | **357,107 B/s** | **2.86 Mbit/s** | **~47 s** |
 
-The best measured run delivered approximately **2.86 Mbit/s of end-to-end HTTP payload**, **21.4% above** the 8 KiB baseline. This is **not** a measurement of maximum VPN link capacity or cryptographic throughput in isolation; it is the observed throughput of an actual AmigaOS HTTP application across the encrypted tunnel.
+The 64 KiB run improved measured throughput by approximately **21.4%** over the 8 KiB run. The Amiga remained usable during the transfer, although Emu68 CPU utilization was close to saturation. The figures do not establish the maximum possible throughput of the VPN engine.
 
-During the transfer, Emu68's CPU load approached saturation, yet **iBrowse remained usable**. This is an encouraging practical observation, not a substitute for long-duration concurrency or stability testing.
+## Running AmiOpenVPN
 
-### What is proven — and what is not
+The following illustrates the validated **MiamiDX-based** workflow. It assumes `vpn.device` is installed, MiamiDX already has a functioning physical Internet connection, AmiSSL is available, and your OpenVPN certificate/key material and trusted server configuration have been supplied.
 
-**Hardware-validated in this milestone:**
+1. Configure a MiamiDX point-to-point interface named **`ptp0`** using `vpn.device` **unit 0**. Leave the physical Internet interface enabled.
+2. Place the AmiOpenVPN executable and required `.ovpn` configuration in an AmigaDOS directory (for example, one assigned as `OPENVPN:`).
+3. Provide the appropriate `up`, `route-up`, and `route-pre-down` scripts for your network and review **every route and firewall command** before enabling full-tunnel operation.
+4. Use the normal OpenVPN configuration directives to connect. For example:
 
-- Native AmigaOS 68k OpenVPN execution and authenticated encrypted sessions.
-- Functioning bidirectional MiamiDX ↔ `vpn.device` ↔ OpenVPN IPv4 data path.
-- Linux laboratory tunnel with successful two-way ICMP.
-- AWS-hosted tunnel using the same application and driver binaries.
-- Real, encrypted Amiga-to-AWS HTTP transfer of 16 MiB, with measured payload throughput.
-- Preservation of the ordinary MiamiDX networking model instead of replacing the system's TCP/IP stack.
+```text
+client
+proto udp
+dev tun
+remote your.vpn.server.example 1194
+remote-cert-tls server
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+tun-mtu 1400
+ifconfig-noexec
+route-noexec
+script-security 2
+up OPENVPN:Up.script
+route-up OPENVPN:RouteUp.script
+route-pre-down OPENVPN:RoutePreDown.script
+verb 3
+```
 
-**Still outside the validated scope:**
+Add **your own trusted CA, client certificate, private key, and any required `tls-crypt` material** in the form expected by the server. The example above is deliberately incomplete: it must not be treated as a ready-to-connect or secure standalone profile.
 
-- Generalized automatic address, route, DNS and interface lifecycle management. The original POC4 bridge has fixed laboratory assumptions.
-- IPv6, layer-2 TAP bridging, OpenVPN DCO, and a production GUI or background service.
-- Stress-tested long-running reconnect/recovery behavior, heavy concurrent traffic, and exhaustive resource-lifetime testing.
-- Full optimization of the SANA-II receive path, packet queues, and high-load performance.
+Start from an AmigaDOS Shell with sufficient stack space:
 
-These limitations do not diminish the milestone; they define a stable boundary from which the next work can proceed without unnecessarily changing the already working tunnel.
+```text
+Stack 262144
+OPENVPN:openvpn --config OPENVPN:client.ovpn
+```
 
-### Why this milestone matters
+For live Shell log capture, the tested AmigaDOS redirection is:
 
-openVPN began with an ambitious question: **could a classic Amiga participate directly in today's encrypted networks without outsourcing the VPN to a modern operating system?**
+```text
+OPENVPN:openvpn --config OPENVPN:client.ovpn >>RAM:openvpn.log
+```
 
-An Amiga 600 running AmigaOS and MiamiDX now establishes a standards-based, authenticated OpenVPN connection, exchanges real IP packets through a native SANA-II interface, reaches a server across the Internet, and serves files through that encrypted path. The work bridges a classic operating system's device and networking model with a contemporary security protocol — while keeping both sides recognizably themselves.
+For a gateway-only diagnostic, run `openvpn --show-gateway` **before** bringing the VPN full tunnel online, so that the physical default route is unambiguous.
 
+`ptp0` may also be brought online or offline via MiamiDX's ARexx interface; this is an optional Workbench convenience, not a dependency of the VPN protocol engine.
+
+## Compatibility and known limitations
+
+- **Tested stack:** MiamiDX. SANA-II is a portable Amiga driver interface, but the complete integration and routing-socket backend have not yet been demonstrated on Roadshow, AmiTCP/Genesis, or other stacks.
+- **IP family / device mode:** IPv4 TUN only. No IPv6 tunnel, TAP bridging, or OpenVPN DCO acceleration is claimed.
+- **Routing automation:** the full-tunnel scripts work on the validated MiamiDX setup. Dynamic use of the newly discovered physical gateway throughout those scripts, edge cases with pre-existing routes, and robust rollback on partial failures are not yet validated.
+- **DNS:** pushed resolver configuration and the UDP/53 firewall policy have been tested; comprehensive leak prevention, TCP/53 and IPv6 filtering, and restoration of pre-VPN DNS settings are not yet complete.
+- **Lifecycle:** normal script-driven startup and teardown have been tested. Long-duration unattended reconnects, every provider's PUSH options, and exhaustive multi-provider compatibility remain open validation work.
+- **Performance / stability:** the measured HTTP transfer is real, but it is not a long-duration stress test or proof of production readiness.
+- **Security:** this is an experimental port running on a legacy OS. Keep key files protected, verify server certificates, review privileged networking scripts, and do not interpret hardware validation as a security audit.
+
+## Why this matters
+
+An Amiga 600 running a decades-old operating system is a **first-class endpoint of a modern encrypted network**. Its own TCP/IP stack routes the packets, its own 68k application negotiates TLS and performs encryption, and its own native devices and scripts manage the VPN interface. The PiStorm supplies the processing speed; it does not replace AmigaOS with a modern networking host.
+
+The project demonstrates something larger than raw acceleration: **an extensible operating-system architecture, a portable network-device model, and a deliberately scriptable application can remain useful across extraordinary changes in hardware and software generations.**
+
+---
+
+*Based on OpenVPN 2.6.23, adapted for native AmigaOS 68k with AmiSSL and SANA-II. Hardware-validation status as of October 27, 2026.*
