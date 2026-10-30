@@ -1,0 +1,10 @@
+.KEY dev,mtu,link_mtu,local,remote,context
+; AmiTCP-NG POC1 - automatic ptp0 startup
+Echo "[UP] BEGIN - ptp0 <local> -> ${route_vpn_gateway}"
+FailAt 10
+
+; Apply server-pushed address and peer
+Echo "[UP] C:ConfigureNetInterface ptp0 ADDRESS=<local> DESTINATION=${route_vpn_gateway} MTU=<mtu>"
+AMITCP:C/ConfigureNetInterface ptp0 ADDRESS=<local> DESTINATION=${route_vpn_gateway} MTU=<mtu>
+
+Echo "[UP] END"

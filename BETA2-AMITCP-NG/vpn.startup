@@ -1,0 +1,37 @@
+; AmiOpenVPN + AmiTCP-NG - standalone VPN startup (AmigaDOS 3.1)
+; Requires AmiTCP-NG active, with ptp0 as the only point-to-point interface.
+FailAt 21
+Stack 262144
+
+Echo "[START] Checking Internet connectivity (1.1.1.1)"
+AmiTCP:C/ping -c 1 -t 3 -q 1.1.1.1 >NIL:
+If WARN
+  Echo "[START] Trying backup Internet probe (8.8.8.8)"
+  AmiTCP:C/ping -c 1 -t 3 -q 8.8.8.8 >NIL:
+  If WARN
+    Echo "[START] No Internet connectivity. OpenVPN not started."
+    Quit 10
+  EndIf
+EndIf
+
+Echo "[START] Checking point-to-point interface"
+AmiTCP:C/GetNetStatus CHECK PTPINTERFACES QUIET >NIL:
+If WARN
+  Echo "[START] Bringing ptp0 online"
+  AmiTCP:C/AddNetInterface ptp0
+  If WARN
+    Echo "[START] Cannot bring ptp0 online. OpenVPN not started."
+    Quit 10
+  EndIf
+Else
+  Echo "[START] ptp0 already online"
+EndIf
+
+AmiTCP:C/ShowNetStatus INTERFACE ptp0 QUIET >NIL:
+If WARN
+  Echo "[START] ptp0 not available. OpenVPN not started."
+  Quit 10
+EndIf
+
+Echo "[START] Internet reachable; starting OpenVPN"
+OPENVPN:openvpn --config OPENVPN:AWS.ovpn
