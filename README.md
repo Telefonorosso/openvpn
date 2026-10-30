@@ -21,7 +21,7 @@ Native IPv4 OpenVPN client using **AmiSSL v5**, the TCP/IP stack's **`bsdsocket.
 | **MiamiDX** | **Hardware validated** | Point-to-point `ptp0`, routing and DNS scripts. |
 | **AmiTCP-NG** | **Hardware validated** | `ptp0`, full tunnel and lifecycle scripts; pushed DNS update/restoration via `amitcpresolver`. |
 | **Roadshow** | **Expected compatible; validation pending** | SANA-II interface setup should be equivalent to AmiTCP-NG; route/DNS scripts use Roadshow commands. |
-| **PrismNet 1.0.8** | **Validated under WinUAE** | `NetCtl` integration; TLS 1.3, AES-256-GCM, full tunnel and pushed DNS tested. |
+| **PrismNet 1.0.8** | **Validated under WinUAE** | `NetCtl` integration; TLS 1.3, AES-256-GCM, full tunnel and pushed DNS tested. https://github.com/lainejones/PrismNet#vpn |
 
 **The OpenVPN client is stack-independent.** IP addresses, routing, default-gateway handling and DNS are managed by stack-specific AmigaDOS scripts; MiamiDX scripts must not be used unchanged with other stacks.
 
