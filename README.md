@@ -2,7 +2,7 @@
   <img src="boingvpn.png" alt="AmiOpenVPN logo">
 </p>
 
-# AmiOpenVPN
+# openvpn for AmigaOS - AI CODED
 
 **OpenVPN 2.6.23 for AmigaOS 68k.**
 
