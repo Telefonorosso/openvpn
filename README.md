@@ -92,7 +92,7 @@ Verify tunnel connectivity, routes and DNS. On abnormal termination, check that 
 
 ## Certificates and local CSR
 
-A **Certificate Signing Request (CSR) has been generated successfully on AmigaOS itself**. A locally generated CSR can be submitted to a CA or VPN administrator for signing while its associated private key remains on the Amiga. Configure the resulting signed certificate and private key in the OpenVPN profile when client-certificate authentication is required.
+A **Certificate Signing Request (CSR) has been generated successfully on AmigaOS itself with AmiSSL V5.**. A locally generated CSR can be submitted to a CA or VPN administrator for signing while its associated private key remains on the Amiga. Configure the resulting signed certificate and private key in the OpenVPN profile when client-certificate authentication is required.
 
 ## Limitations
 
