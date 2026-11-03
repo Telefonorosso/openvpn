@@ -1,0 +1,26 @@
+; AmiOpenVPN / AmiNetXDuo POC1 - start from an AmigaDOS 3.1 Shell.
+; Start the physical network via S:Network-Startup first.
+FailAt 21
+Stack 262144
+Echo "[START] Checking original default route and ptp0 configuration"
+RX OPENVPN:AOVPN-Routes.rexx CHECK
+If WARN
+  Echo "[START] Preflight failed. OpenVPN not started."
+  Quit 10
+EndIf
+Echo "[START] Checking point-to-point interface"
+C:GetNetStatus CHECK PTPINTERFACES QUIET >NIL:
+If WARN
+  C:AddNetInterface ptp0
+  If WARN
+    Echo "[START] Could not add ptp0"
+    Quit 10
+  EndIf
+EndIf
+C:ShowNetStatus INTERFACE ptp0 QUIET >NIL:
+If WARN
+  Echo "[START] ptp0 unavailable"
+  Quit 10
+EndIf
+Echo "[START] Starting OpenVPN"
+OPENVPN:openvpn --config OPENVPN:AWS.ovpn
