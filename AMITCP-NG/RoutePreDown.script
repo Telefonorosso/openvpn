@@ -1,0 +1,48 @@
+; AmiTCP-NG POC2 - restore DNS and the POC1 physical default route
+; Requires OPENVPN:amitcpresolver; original AOVPN-Routes.rexx is unchanged.
+FailAt 21
+Echo "[PRE-DOWN] BEGIN"
+Set aovpn_dns_failed 0
+
+; DNS restore is additive-first: physical DNS are made available before
+; VPN-only DNS are removed. On failure preserve the snapshot for recovery.
+If EXISTS RAM:AOVPN-DNS.saved
+  If EXISTS RAM:AOVPN-DNS.vpn
+    Echo "[DNS] Restoring original DNS servers"
+    RX "if ~open('i','RAM:AOVPN-DNS.saved','READ') then exit 10; do while ~eof('i'); a=strip(readln('i')); if a~='' then do; address command 'OPENVPN:amitcpresolver ADD '||a; if RC~=0 then exit 10; end; end; call close('i')"
+    If WARN
+      Echo "[DNS] Original DNS ADD failed; keeping VPN DNS and snapshot."
+      Set aovpn_dns_failed 1
+    Else
+      Echo "[DNS] Removing VPN-only DNS servers"
+      RX "if ~open('i','RAM:AOVPN-DNS.vpn','READ') then exit 10; do while ~eof('i'); a=strip(readln('i')); if a~='' then do; shared=0; if open('v','RAM:AOVPN-DNS.saved','READ') then do; do while ~eof('v'); if strip(readln('v'))=a then shared=1; end; call close('v'); end; if ~shared then do; address command 'OPENVPN:amitcpresolver REMOVE '||a; if RC~=0 then exit 10; end; end; end; call close('i')"
+      If WARN
+        Echo "[DNS] VPN DNS REMOVE failed; keeping snapshot."
+        Set aovpn_dns_failed 1
+      Else
+        Delete RAM:AOVPN-DNS.saved RAM:AOVPN-DNS.vpn QUIET
+        Echo "[DNS] Original resolvers restored."
+      EndIf
+    EndIf
+  Else
+    Echo "[DNS] Incomplete state: saved DNS exists but VPN DNS list is missing."
+    Echo "[DNS] Leaving resolver unchanged; snapshot preserved."
+    Set aovpn_dns_failed 1
+  EndIf
+Else
+  Echo "[DNS] No DNS snapshot; nothing to restore."
+EndIf
+
+; Always try to restore the physical route, even if DNS restoration failed.
+Echo "[PRE-DOWN] Restoring default route"
+RX OPENVPN:AOVPN-Routes.rexx DOWN
+If WARN
+  Echo "[PRE-DOWN] ROUTE RESTORE FAILED - inspect RAM:AOVPN-Routes.state."
+  Quit 10
+EndIf
+If "$aovpn_dns_failed" EQ "1"
+  Echo "[PRE-DOWN] DNS RESTORE INCOMPLETE - inspect RAM:AOVPN-DNS.saved."
+  Quit 10
+EndIf
+Echo "[PRE-DOWN] END"
+Quit 0

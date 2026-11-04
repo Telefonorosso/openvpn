@@ -1,0 +1,76 @@
+; AmiTCP-NG POC2 - routing POC1 + DNS switching using amitcpresolver FIX1
+; Requires OPENVPN:amitcpresolver; original AOVPN-Routes.rexx is unchanged.
+; The snapshot and server DNS list survive in RAM until RoutePreDown.script.
+FailAt 21
+Echo "[ROUTE-UP] BEGIN - server ${trusted_ip}; VPN peer ${route_vpn_gateway}"
+
+; Do not overwrite a DNS snapshot left from an unfinished session.
+If EXISTS RAM:AOVPN-DNS.saved
+  Echo "[DNS] Previous snapshot still exists; DNS was NOT changed."
+  Quit 10
+EndIf
+
+Echo "[ROUTE-UP] Installing VPN routes"
+RX OPENVPN:AOVPN-Routes.rexx UP ${trusted_ip} ${route_vpn_gateway}
+If WARN
+  Echo "[ROUTE-UP] Routing failed; DNS unchanged."
+  Quit 10
+EndIf
+
+; Read original resolver state and OpenVPN local environment variables.
+Echo "[DNS] Saving original DNS configuration"
+OPENVPN:amitcpresolver LIST >RAM:AOVPN-DNS.list
+If WARN
+  Echo "[DNS] Cannot enumerate DNS; restoring routes."
+  SKIP DNSFAIL
+EndIf
+Set >RAM:AOVPN-DNS.env
+RX "if ~open('i','RAM:AOVPN-DNS.list','READ') then exit 10; if ~open('o','RAM:AOVPN-DNS.saved','WRITE') then exit 10; n=0; do while ~eof('i'); a=word(strip(readln('i')),1); if pos('.',a)>0 & verify(a,'0123456789.')=0 then do; call writeln('o',a); n=n+1; end; end; call close('i'); call close('o'); if n=0 then exit 10"
+If WARN
+  Echo "[DNS] Cannot save original resolver list."
+  SKIP DNSFAIL
+EndIf
+RX "if ~open('i','RAM:AOVPN-DNS.env','READ') then exit 10; if ~open('o','RAM:AOVPN-DNS.vpn','WRITE') then exit 10; n=0; do while ~eof('i'); s=strip(readln('i')); p=pos('DHCP-OPTION DNS ',translate(s)); if pos('FOREIGN_OPTION_',translate(s))=1 & p>0 then do; a=word(substr(s,p+16),1); if verify(a,'0123456789.')=0 & pos('.',a)>0 then do; call writeln('o',a); n=n+1; end; end; end; call close('i'); call close('o'); if n=0 then exit 10"
+If WARN
+  Echo "[DNS] No IPv4 dhcp-option DNS found in foreign_option_N."
+  SKIP DNSFAIL
+EndIf
+
+; First install all VPN DNS, then remove physical DNS not also pushed.
+Echo "[DNS] Adding server-pushed DNS"
+RX "if ~open('i','RAM:AOVPN-DNS.vpn','READ') then exit 10; do while ~eof('i'); a=strip(readln('i')); if a~='' then do; address command 'OPENVPN:amitcpresolver ADD '||a; if RC~=0 then exit 10; end; end; call close('i')"
+If WARN
+  Echo "[DNS] DNS ADD failed; restoring original configuration."
+  SKIP DNSFAIL
+EndIf
+Echo "[DNS] Removing former DNS servers not in VPN list"
+RX "if ~open('i','RAM:AOVPN-DNS.saved','READ') then exit 10; do while ~eof('i'); a=strip(readln('i')); if a~='' then do; shared=0; if open('v','RAM:AOVPN-DNS.vpn','READ') then do; do while ~eof('v'); if strip(readln('v'))=a then shared=1; end; call close('v'); end; if ~shared then do; address command 'OPENVPN:amitcpresolver REMOVE '||a; if RC~=0 then exit 10; end; end; end; call close('i')"
+If WARN
+  Echo "[DNS] DNS REMOVE failed; restoring original configuration."
+  SKIP DNSFAIL
+EndIf
+
+Delete RAM:AOVPN-DNS.env RAM:AOVPN-DNS.list QUIET
+Echo "[DNS] Live DNS switched; snapshot retained until disconnect."
+Echo "[ROUTE-UP] END"
+Quit 0
+
+LAB DNSFAIL
+; Clean temporary environment dump (may contain unrelated local variables).
+If EXISTS RAM:AOVPN-DNS.env
+  Delete RAM:AOVPN-DNS.env QUIET
+EndIf
+If EXISTS RAM:AOVPN-DNS.list
+  Delete RAM:AOVPN-DNS.list QUIET
+EndIf
+; If no VPN DNS list was created, the resolver was never modified.
+If NOT EXISTS RAM:AOVPN-DNS.vpn
+  If EXISTS RAM:AOVPN-DNS.saved
+    Delete RAM:AOVPN-DNS.saved QUIET
+  EndIf
+EndIf
+; Use the paired hook to restore BOTH DNS and default routing.
+; RoutePreDown.script also handles a missing/incomplete DNS snapshot.
+C:Execute OPENVPN:RoutePreDown.script
+Echo "[ROUTE-UP] Setup failed; check routing and DNS status."
+Quit 10
