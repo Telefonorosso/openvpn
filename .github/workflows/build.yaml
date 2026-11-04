@@ -1,0 +1,352 @@
+# The name of our workflow
+name: Build
+on:
+  push:
+  pull_request:
+
+jobs:
+  checkuncrustify:
+    name: "Check code style with Uncrustify"
+    # Ubuntu 22.04 has uncrustify 0.72_f
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y uncrustify
+      - name: Checkout OpenVPN
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          path: openvpn
+      - name: Show uncrustify version
+        run: uncrustify --version
+      - name: Run uncrustify
+        run: ./dev-tools/reformat-all.sh
+        working-directory: openvpn
+      - name: Check for changes
+        run: git diff --output=uncrustify-changes.patch
+        working-directory: openvpn
+      - name: Show changes on standard output
+        run: git diff
+        working-directory: openvpn
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          archive: false
+          path: 'openvpn/uncrustify-changes.patch'
+      - name: Set job status
+        run: test ! -s uncrustify-changes.patch
+        working-directory: openvpn
+
+  mingw:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86, x64]
+
+    name: "gcc-mingw - ${{ matrix.arch }} - OSSL"
+    runs-on: ubuntu-24.04
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_BINARY_SOURCES: clear;default,readwrite
+      VCPKG_GIT_COMMIT_ID: 75672db6bd812b060482b0f00b5a16b18a0c0f07
+    steps:
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y mingw-w64 unzip build-essential wget python3-docutils man2html-base
+      - name: Checkout OpenVPN
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - uses: lukka/get-cmake@591817e96fcad43505fb4eae36172462abb3a42e # v4.3.3
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11.6
+        with:
+          vcpkgGitCommitId: ${{ env.VCPKG_GIT_COMMIT_ID }}
+          vcpkgJsonGlob: '**/mingw/vcpkg.json'
+
+      - name: Set up vcpkg binary cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: mingw-${{ matrix.arch }}-vcpkg-binary-cache-${{ hashFiles('**/mingw/vcpkg.json') }}-${{ env.VCPKG_GIT_COMMIT_ID }}
+          restore-keys: |
+            mingw-${{ matrix.arch }}-vcpkg-binary-cache-${{ hashFiles('**/mingw/vcpkg.json') }}-
+            mingw-${{ matrix.arch }}-vcpkg-binary-cache-
+
+      - name: Run CMake with vcpkg.json manifest
+        uses: lukka/run-cmake@5d55ea7949e25f69f0ecb516d8d572297e03a956 # v10.9
+        with:
+          configurePreset: mingw-${{ matrix.arch }}
+          buildPreset: mingw-${{ matrix.arch }}
+          buildPresetAdditionalArgs: "['--config Debug']"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: openvpn-mingw-${{ matrix.arch }}
+          path: |
+            ${{ github.workspace }}/out/build/mingw/${{ matrix.arch }}/**/Debug/*.exe
+            ${{ github.workspace }}/out/build/mingw/${{ matrix.arch }}/**/Debug/*.dll
+            !${{ github.workspace }}/out/build/mingw/${{ matrix.arch }}/Debug/test_*.exe
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: openvpn-mingw-${{ matrix.arch }}-tests
+          path: |
+            ${{ github.workspace }}/out/build/mingw/${{ matrix.arch }}/Debug/test_*.exe
+            ${{ github.workspace }}/out/build/mingw/${{ matrix.arch }}/Debug/*.dll
+
+  mingw-unittest:
+    needs: [ mingw ]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86, x64]
+        test: [argv, auth_token, buffer, cryptoapi, crypto, misc, ncp, packet_id, pkt, provider, tls_crypt]
+
+    runs-on: windows-2025-vs2026
+    name: "mingw unittest ${{ matrix.test }} - ${{ matrix.arch }} - OSSL"
+    steps:
+      - name: Retrieve mingw unittest
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: openvpn-mingw-${{ matrix.arch }}-tests
+          path: unittests
+      - name: Run ${{ matrix.test }} unit test
+        run: ./unittests/test_${{ matrix.test }}.exe
+
+  ubuntu:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            sslpkg: libmbedtls-dev
+            ssllib: mbedtls
+            libname: mbed TLS 2.28.0
+          - os: ubuntu-22.04
+            sslpkg: "libssl-dev"
+            libname: OpenSSL 3.0.2
+            ssllib: openssl
+            pkcs11pkg: "libpkcs11-helper1-dev softhsm2 gnutls-bin"
+            extraconf: --enable-pkcs11
+          - os: ubuntu-24.04
+            sslpkg: "libssl-dev"
+            libname: OpenSSL 3.0.13
+            ssllib: openssl
+            pkcs11pkg: "libpkcs11-helper1-dev softhsm2 gnutls-bin"
+            extraconf: --enable-pkcs11
+
+    name: "gcc - ${{matrix.os}} - ${{matrix.libname}} ${{matrix.extraconf}}"
+    env:
+      SSLPKG: "${{matrix.sslpkg}}"
+      PKCS11PKG: "${{matrix.pkcs11pkg}}"
+
+    runs-on: ${{matrix.os}}
+    steps:
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y liblzo2-dev libpam0g-dev liblz4-dev libcap-ng-dev libnl-genl-3-dev linux-libc-dev man2html libcmocka-dev python3-docutils libtool automake autoconf ${SSLPKG} ${PKCS11PKG}
+      - name: Checkout OpenVPN
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: autoconf
+        run: autoreconf -fvi
+      - name: configure
+        run: ./configure --with-crypto-library=${{matrix.ssllib}} ${{matrix.extraconf}} --enable-werror
+      - name: make all
+        run: make -j3
+      - name: make check
+        run: make check
+
+  ubuntu-clang-asan:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+        ssllib: [mbedtls, openssl]
+
+    name: "clang-asan - ${{matrix.os}} - ${{matrix.ssllib}}"
+
+    env:
+      UBSAN_OPTIONS: print_stacktrace=1
+
+    runs-on: ${{matrix.os}}
+    steps:
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y liblzo2-dev libpam0g-dev liblz4-dev libcap-ng-dev libnl-genl-3-dev linux-libc-dev man2html clang libcmocka-dev python3-docutils libtool automake autoconf libmbedtls-dev
+      - name: Checkout OpenVPN
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: autoconf
+        run: autoreconf -fvi
+      - name: configure
+        run: CFLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -O2" CC=clang ./configure --with-crypto-library=${{matrix.ssllib}}
+      - name: make all
+        run: make -j3
+      - name: make check
+        run: make check
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        ssllib: [openssl@3, libressl]
+        build: [normal, asan]
+        os: [macos-15, macos-26]
+        include:
+          - build: asan
+            cflags: "-fsanitize=address,undefined -fno-sanitize-recover=all -fno-optimize-sibling-calls -fsanitize-address-use-after-scope -fno-omit-frame-pointer -g -O1"
+            ldflags: -fsanitize=address,undefined -fno-sanitize-recover=all
+            # Our build system ignores LDFLAGS for plugins
+            configureflags: --disable-plugin-auth-pam  --disable-plugin-down-root
+          - build: normal
+            cflags: "-O2 -g"
+            ldflags: ""
+            configureflags: ""
+
+    runs-on: ${{matrix.os}}
+    name: "${{matrix.os}} - ${{matrix.ssllib}} - ${{matrix.build}}"
+    env:
+      CFLAGS: ${{ matrix.cflags }}
+      LDFLAGS: ${{ matrix.ldflags }}
+      UBSAN_OPTIONS: print_stacktrace=1
+    steps:
+      - name: Install dependencies
+        run: brew install ${{matrix.ssllib}} lzo lz4 man2html cmocka libtool automake autoconf
+      - name: Checkout OpenVPN
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Set environment
+        run: |
+          cat >>$GITHUB_ENV <<EOF;
+          OPENSSL_CFLAGS=-I$(brew --prefix ${{matrix.ssllib}})/include
+          OPENSSL_LIBS=-L$(brew --prefix ${{matrix.ssllib}})/lib -lcrypto -lssl
+          LZO_CFLAGS=-I$(brew --prefix lzo)/include
+          LZO_LIBS=-L$(brew --prefix lzo)/lib -llzo2
+          EOF
+      - name: autoconf
+        run: autoreconf -fvi
+      - name: configure
+        run: ./configure --enable-werror ${{matrix.configureflags}}
+      - name: make all
+        run: make -j4
+      - name: make check
+        run: make check
+
+  msvc:
+      strategy:
+        fail-fast: false
+        matrix:
+          arch: [amd64, x86, arm64]
+
+      name: "msbuild - ${{ matrix.arch }} - openssl"
+      env:
+        BUILD_CONFIGURATION: Release
+        VCPKG_BINARY_SOURCES: clear;default,readwrite
+        VCPKG_GIT_COMMIT_ID: 75672db6bd812b060482b0f00b5a16b18a0c0f07
+
+      runs-on: windows-2025-vs2026
+      steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: lukka/get-cmake@591817e96fcad43505fb4eae36172462abb3a42e # v4.3.3
+
+      - name: Install rst2html
+        run: python -m pip install --upgrade pip docutils
+
+      - name: Setup vcpkg (do not install any package)
+        uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11.6
+        with:
+          vcpkgGitCommitId: ${{ env.VCPKG_GIT_COMMIT_ID }}
+          vcpkgJsonGlob: '**/windows/vcpkg.json'
+
+      - name: Set up vcpkg binary cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: msvc-${{ matrix.arch }}-vcpkg-binary-cache-${{ hashFiles('**/windows/vcpkg.json') }}-${{ env.VCPKG_GIT_COMMIT_ID }}
+          restore-keys: |
+            msvc-${{ matrix.arch }}-vcpkg-binary-cache-${{ hashFiles('**/windows/vcpkg.json') }}-
+            msvc-${{ matrix.arch }}-vcpkg-binary-cache-
+
+
+      - name: Run CMake with vcpkg.json manifest (NO TESTS)
+        uses: lukka/run-cmake@5d55ea7949e25f69f0ecb516d8d572297e03a956 # v10.9
+        if: ${{ matrix.arch == 'arm64' }}
+        with:
+          configurePreset: win-${{ matrix.arch }}-release
+          buildPreset: win-${{ matrix.arch }}-release
+          configurePresetAdditionalArgs: "['-GVisual Studio 18 2026']"
+
+      - name: Run CMake with vcpkg.json manifest
+        uses: lukka/run-cmake@5d55ea7949e25f69f0ecb516d8d572297e03a956 # v10.9
+        if: ${{ matrix.arch != 'arm64' }}
+        with:
+          configurePreset: win-${{ matrix.arch }}-release
+          buildPreset: win-${{ matrix.arch }}-release
+          testPreset: win-${{ matrix.arch }}-release
+          configurePresetAdditionalArgs: "['-GVisual Studio 18 2026']"
+          testPresetAdditionalArgs: "['--output-on-failure']"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: openvpn-msvc-${{ matrix.arch }}
+          path: |
+            ${{ github.workspace }}/out/**/*.exe
+            ${{ github.workspace }}/out/**/*.dll
+            !${{ github.workspace }}/out/**/test_*.exe
+            !${{ github.workspace }}/out/**/CMakeFiles/**
+            !${{ github.workspace }}/out/**/vcpkg_installed/**
+
+  libressl:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04]
+        ssllib: [libressl]
+        build: [ normal, asan ]
+        configureflags: ["--with-openssl-engine=no"]
+        include:
+          - build: asan
+            cflags: "-fsanitize=address -fno-sanitize-recover=all -fno-optimize-sibling-calls -fsanitize-address-use-after-scope -fno-omit-frame-pointer -g -O1"
+            ldflags: -fsanitize=address -fno-sanitize-recover=all
+            cc: clang
+          - build: normal
+            cflags: "-O2 -g"
+            ldflags: ""
+            cc: gcc
+
+    name: "${{matrix.cc}} ${{matrix.build}} - ${{matrix.os}} - ${{matrix.ssllib}}"
+    runs-on: ${{matrix.os}}
+    env:
+      CFLAGS: ${{ matrix.cflags }}
+      LDFLAGS: ${{ matrix.ldflags }}
+      CC: ${{matrix.cc}}
+      UBSAN_OPTIONS: print_stacktrace=1
+
+    steps:
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y liblzo2-dev libpam0g-dev liblz4-dev linux-libc-dev man2html clang libcmocka-dev python3-docutils libtool automake autoconf pkg-config libcap-ng-dev libnl-genl-3-dev
+      - name: "libressl: checkout"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          path: libressl
+          repository: libressl/portable
+          ref: v4.0.0
+      - name: "libressl: autogen.sh"
+        env:
+          LIBRESSL_GIT_OPTIONS: "--no-single-branch"
+        run: ./autogen.sh
+        working-directory: libressl
+      - name: "libressl: configure"
+        run: ./configure
+        working-directory: libressl
+      - name: "libressl: make all"
+        run: make -j3
+        working-directory: libressl
+      - name: "libressl: make install"
+        run: sudo make install
+        working-directory: libressl
+      - name: "ldconfig"
+        run: sudo ldconfig
+      - name: Checkout OpenVPN
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: autoconf
+        run: autoreconf -fvi
+      - name: configure
+        run: ./configure --with-crypto-library=openssl ${{matrix.configureflags}}
+      - name: make all
+        run: make -j3
+      - name: make check
+        run: make check
