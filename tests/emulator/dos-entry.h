@@ -61,6 +61,7 @@ static int probe_printf(const char *format, ...)
     va_start(args, format);
     result = VPrintf((STRPTR)dos_format, (LONG *)args);
     va_end(args);
+    if (!Flush(Output())) return -1;
     return (int)result;
 }
 

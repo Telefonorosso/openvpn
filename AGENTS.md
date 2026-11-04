@@ -137,9 +137,10 @@ for hands-on review when the human requests it, until that review finishes.
 Keep stack-specific test source and instructions under `tests/stacks/`.
 The Roadshow demo test must use its pinned public archive and a fresh driver,
 not an installed stack. Never upload its extracted libraries or private image
-contents as artifacts. Miami runtime coverage remains pending the documented
-ASL/MUI/ARexx environment; do not relabel Roadshow or shared-driver results as
-Miami validation. See `tests/stacks/README.md` for the real-stack checks.
+contents as artifacts. Miami has a repeatable licensed-runtime roundtrip/reconnect/shutdown test.
+Its private CI job is enabled only for a manually selected reviewed ref; never
+run untrusted PR code on that host. Missing/skipped private jobs are not passes.
+The fuller AROS experiments fail shutdown and must not be relabeled as validated. See `tests/stacks/README.md` for the real-stack checks.
 
 ## Versioning and releases
 
@@ -167,7 +168,8 @@ commit, only after the maintainer authorizes tagging.
 
 Before integration, check substantive review findings and all expected jobs on
 the latest exact head: version check, both host jobs, Amiga cross-build and
-Copperline guest tests. Queued, skipped, cancelled or old-SHA results are not
+Copperline guest tests, plus actual native Miami evidence for affected stack
+changes. Queued, skipped, cancelled or old-SHA results are not
 passes. Inspect artifacts and coverage, not just aggregate status. Record source
 SHA, dependency pins, compiler version, binary/package hashes and actual results.
 Do not relabel mocked, partial or hardware-only results as a full suite pass.

@@ -4,5 +4,18 @@
     "url": "https://www.amigafuture.de/app.php/dlext/details?df_id=3657",
     "archive": "Roadshow-Demo-1.15.lha",
     "sha256": "890d322ff92c2395c609bb1316ea755ff4c6124ae84a4605680f2940553d2ac8"
+  },
+  "miami": {
+    "version": "1.0c",
+    "main": {
+      "url": "https://aminet.net/comm/tcp/MiamiDx10cmain.lha",
+      "archive": "MiamiDx10cmain.lha",
+      "sha256": "25b89bf4dcb60eceb6b2c956431ab0c3bbeab72844743a1bf09df0aff7161709"
+    },
+    "gui": {
+      "url": "https://aminet.net/comm/tcp/MiamiDx10c-MUI.lha",
+      "archive": "MiamiDx10c-MUI.lha",
+      "sha256": "2edd97484489665388163b01263f9db1813be289dea5051d5cff8cbdb42e0cf7"
+    }
   }
 }

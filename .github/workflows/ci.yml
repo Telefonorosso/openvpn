@@ -5,6 +5,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      miami_native:
+        description: 'Run reviewed code on the configured licensed AmigaOS/MUI test runner'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -19,6 +24,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check port and upstream versions
         run: python3 tools/check-version.py
+      - name: Validate private Miami lane configuration
+        if: github.event_name == 'workflow_dispatch' && inputs.miami_native
+        env:
+          RUNNER_LABEL: ${{ vars.MIAMI_TEST_RUNNER }}
+          GUEST_SYSTEM: ${{ vars.MIAMI_GUEST_SYSTEM }}
+          GUEST_ROM: ${{ vars.MIAMI_ROM }}
+        run: |
+          test -n "$RUNNER_LABEL" && test -n "$GUEST_SYSTEM" && test -n "$GUEST_ROM" || {
+            echo '::error::Configure MIAMI_TEST_RUNNER, MIAMI_GUEST_SYSTEM and MIAMI_ROM first'
+            exit 1
+          }
       - name: Check release tag
         if: startsWith(github.ref, 'refs/tags/')
         env:
@@ -97,6 +113,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Copperline build dependencies
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev lhasa
+      - name: Fetch pinned Roadshow test input
+        run: python3 tests/stacks/fetch-roadshow.py
       - name: Read pinned emulator version
         id: pins
         run: |
@@ -121,28 +139,99 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             build/copperline-target
-          key: copperline-linux-${{ steps.pins.outputs.commit }}-${{ steps.pins.outputs.rust }}-frontend
+          key: copperline-linux-${{ steps.pins.outputs.commit }}-${{ steps.pins.outputs.rust }}-frontend-ci
       - name: Build the pinned emulator
         run: |
-          cargo build --manifest-path build/copperline-source/Cargo.toml --release --locked --no-default-features --features frontend --bin copperline --target-dir build/copperline-target
-          mkdir -p build/copperline-target/release/aros
-          cp build/copperline-source/assets/aros/* build/copperline-target/release/aros/
-          touch build/copperline-target/release/portable.txt
+          cargo build --manifest-path build/copperline-source/Cargo.toml --profile ci --locked --no-default-features --features frontend --bin copperline --target-dir build/copperline-target
+          mkdir -p build/copperline-target/ci/aros
+          cp build/copperline-source/assets/aros/* build/copperline-target/ci/aros/
+          touch build/copperline-target/ci/portable.txt
+      - name: Identify emulator build for optional licensed lane
+        if: github.event_name == 'workflow_dispatch' && inputs.miami_native
+        run: |
+          git -C build/copperline-source rev-parse HEAD > build/copperline-target/ci/SOURCE_COMMIT
+          cp build/copperline-source/LICENSE build/copperline-target/ci/LICENSE
+          cd build/copperline-target/ci
+          sha256sum copperline > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch' && inputs.miami_native
+        with:
+          name: copperline-linux-ci
+          path: |
+            build/copperline-target/ci/copperline
+            build/copperline-target/ci/aros/
+            build/copperline-target/ci/portable.txt
+            build/copperline-target/ci/SHA256SUMS
+            build/copperline-target/ci/SOURCE_COMMIT
+            build/copperline-target/ci/LICENSE
+          if-no-files-found: error
       - uses: actions/download-artifact@v4
         with:
           name: amiga-binaries
           path: build/amiga-bin
       - name: Execute freshly built Amiga binaries under AROS
-        run: python3 tools/emulator-smoke.py --emulator build/copperline-target/release/copperline --bin-dir build/amiga-bin --results build/emulator-results
+        run: python3 tools/emulator-smoke.py --emulator build/copperline-target/ci/copperline --bin-dir build/amiga-bin --results build/emulator-results
       - name: Roadshow demo socket and SANA-II integration
         run: |
-          python3 tests/stacks/fetch-roadshow.py
-          python3 tests/stacks/run-roadshow.py --emulator build/copperline-target/release/copperline --bin-dir build/amiga-bin --demo-archive build/stack-dependencies/Roadshow-Demo-1.15.lha --results build/emulator-results/roadshow
+          python3 tests/stacks/run-roadshow.py --emulator build/copperline-target/ci/copperline --bin-dir build/amiga-bin --demo-archive build/stack-dependencies/Roadshow-Demo-1.15.lha --results build/emulator-results/roadshow
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: emulator-results
           path: build/emulator-results/
+          if-no-files-found: error
+
+  miami-native:
+    name: MiamiDX on licensed AmigaOS
+    if: github.event_name == 'workflow_dispatch' && inputs.miami_native
+    needs: [host, cross, emulator]
+    runs-on: ${{ vars.MIAMI_TEST_RUNNER || 'miami-runner-not-configured' }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: amiga-binaries
+          path: build/amiga-bin
+      - uses: actions/download-artifact@v4
+        with:
+          name: copperline-linux-ci
+          path: build/copperline-bin
+      - name: Verify hosted emulator and private runtime
+        env:
+          GUEST_SYSTEM: ${{ vars.MIAMI_GUEST_SYSTEM }}
+          GUEST_ROM: ${{ vars.MIAMI_ROM }}
+        run: |
+          cd build/copperline-bin
+          sha256sum --check SHA256SUMS
+          chmod +x copperline
+          test -d "$GUEST_SYSTEM/System/MUI/Libs"
+          test -f "$GUEST_ROM"
+          command -v lha
+      - name: Verify the emulator source pin
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          expected = json.loads(Path('ci/dependencies.json').read_text())['copperline']['commit']
+          actual = Path('build/copperline-bin/SOURCE_COMMIT').read_text().strip()
+          if expected != actual:
+              raise SystemExit('Emulator source pin mismatch')
+          PY
+      - name: Fetch pinned public Miami demo
+        run: python3 tests/stacks/fetch-miami.py
+      - name: Execute the real Miami stack and fresh driver
+        env:
+          GUEST_SYSTEM: ${{ vars.MIAMI_GUEST_SYSTEM }}
+          GUEST_ROM: ${{ vars.MIAMI_ROM }}
+        run: python3 tests/stacks/run-miami.py --emulator build/copperline-bin/copperline --bin-dir build/amiga-bin --main-archive build/stack-dependencies/MiamiDx10cmain.lha --gui-archive build/stack-dependencies/MiamiDx10c-MUI.lha --guest-system "$GUEST_SYSTEM" --rom "$GUEST_ROM" --results build/miami-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: miami-native-results
+          path: build/miami-results/
           if-no-files-found: error
 
   draft-release:

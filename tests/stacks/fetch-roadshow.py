@@ -42,7 +42,8 @@ def main():
     archive = args.cache / pin['archive']
     if not archive.exists():
         opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
-        with opener.open(pin['url'], timeout=30) as response:
+        headers = {'User-Agent': 'AmiOpenVPN-CI/1.0', 'Cache-Control': 'no-cache'}
+        with opener.open(urllib.request.Request(pin['url'], headers=headers), timeout=30) as response:
             page = response.read(2 * 1024 * 1024).decode()
         form = DownloadForm()
         form.feed(page)
@@ -51,11 +52,18 @@ def main():
         action = urllib.parse.urljoin(pin['url'], html.unescape(form.action))
         if urllib.parse.urlsplit(action).netloc != urllib.parse.urlsplit(pin['url']).netloc:
             raise SystemExit('Refusing unexpected download form destination')
-        request = urllib.request.Request(action, urllib.parse.urlencode(form.fields).encode())
+        request = urllib.request.Request(action, urllib.parse.urlencode(form.fields).encode(),
+            headers=dict(headers, Referer=pin['url']))
         with opener.open(request, timeout=60) as response:
             data = response.read(4 * 1024 * 1024)
+            response_type = response.headers.get('Content-Type', 'unknown')
         if hashlib.sha256(data).hexdigest() != pin['sha256']:
-            raise SystemExit('Roadshow demo SHA256 mismatch; no test input accepted')
+            import re
+            title = re.search(r'<title>(.*?)</title>', data[:32768].decode(errors='replace'), re.S)
+            detail = re.sub(r'\s+', ' ', title.group(1))[:160] if title else '(no HTML title)'
+            raise SystemExit('Roadshow demo SHA256 mismatch; no test input accepted. '
+                + 'Received ' + str(len(data)) + ' bytes, type ' + response_type + ', SHA256 '
+                + hashlib.sha256(data).hexdigest() + ', title ' + detail)
         archive.write_bytes(data)
     if hashlib.sha256(archive.read_bytes()).hexdigest() != pin['sha256']:
         raise SystemExit('Cached Roadshow demo SHA256 mismatch')

@@ -50,11 +50,21 @@ Amiga ABI or interoperability with a TCP/IP stack.
 
 ## Copperline guest smoke tests
 
-CI builds the pinned Copperline commit with its `frontend` feature and bundled
+CI builds the pinned Copperline commit with its existing optimized `ci` profile
+(no fat LTO), its `frontend` feature and bundled
 open-source AROS ROMs. It uses no proprietary Kickstart, Workbench image, VPN
 credential or external VPN service. Copy `assets/aros/` from that exact
 Copperline checkout beside its binary and create `portable.txt` there to keep
-the generated guest volumes in the build directory. Then run:
+the generated guest volumes in the build directory. For an existing source directory at the pinned commit:
+
+```sh
+cargo build --manifest-path /path/to/Copperline/Cargo.toml --profile ci --locked --no-default-features --features frontend --bin copperline --target-dir build/copperline-target
+mkdir -p build/copperline-target/ci/aros
+cp /path/to/Copperline/assets/aros/* build/copperline-target/ci/aros/
+touch build/copperline-target/ci/portable.txt
+```
+
+Then run:
 
 ```sh
 python3 tools/emulator-smoke.py --emulator /path/to/copperline --bin-dir build/amiga/bin --results build/emulator-results
@@ -79,8 +89,8 @@ encrypted OpenVPN session, routing, DNS restoration or all supported stacks.
 
 The same CI emulator job also runs a real Roadshow 1.15 demo socket/interface
 check against the freshly built shared driver. See `tests/stacks/README.md` for
-commands, the pinned public test input, exact coverage and the MiamiDX runtime
-blocker. These are stack compatibility checks, not an encrypted VPN session.
+commands, the pinned public test inputs, exact coverage and the complete
+MiamiDX test using an authorized AmigaOS/MUI runtime. These are stack compatibility checks, not an encrypted VPN session.
 
 ## GitHub workflow and releases
 
@@ -90,6 +100,7 @@ the source commit, dependency provenance and package SHA-256 checksums.
 The version check also validates `VERSION` against upstream `version.m4`;
 release tags must equal `v` followed by `VERSION`. See `AGENTS.md` for revision
 and changelog rules. Version-tag pushes create a **draft** release only after
-the version, both host, cross-build and guest jobs pass.
+the version, both host, cross-build and guest jobs pass. A separate explicitly requested native Miami job uses
+a private licensed runtime; ordinary PR skips are not runtime passes.
 The maintainer reviews and publishes it; this change does not push a release tag
 or publish a release. Francesco's repository remains the authoritative project.

@@ -29,10 +29,12 @@ Keep portable fixes separate from Amiga-only integration and packaging. A
 source-only history can be exported with:
 
 ```sh
+git fetch https://github.com/OpenVPN/openvpn.git tag v2.6.23
 git subtree split --prefix=src/openvpn --branch=export/amiga-openvpn
 ```
 
-Use that export to select small commits or patches for review against the
+The fetch makes the tracked upstream history available in a fresh clone;
+use the currently tracked tag after an upgrade. Use that export to select small commits or patches for review against the
 appropriate official OpenVPN branch. Open a contribution from a fork of
 `OpenVPN/openvpn`, following that project's contribution instructions.
 Francesco's Amiga repository and contributor forks of it are a separate GitHub

@@ -42,7 +42,8 @@ and `AGENTS.md` for development, validation and release rules.
 
 CI runs Linux/macOS host regressions, an AmigaPorts GCC cross-build and bounded
 Copperline/AROS guest FIFO and SANA-II smoke tests, plus a real Roadshow demo UDP/driver check.
-Miami-specific runtime coverage is pending; see `tests/stacks/README.md`. Packages contain one rebuilt
+Miami roundtrip/reconnect/shutdown tests use a licensed runtime in a separately
+requested private CI lane; see `tests/stacks/README.md`. Packages contain one rebuilt
 shared client/driver, DNS helpers and all stack integrations, plus the unchanged
 historical RequestString utility. `prebuilt/beta2/` remains historical evidence.
 The initial import/layout commits preserve active source bytes. The later build
