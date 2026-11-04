@@ -716,7 +716,10 @@ tuntap_is_dco_win_timeout(struct tuntap *tt, int status)
 static inline event_t
 tun_event_handle(const struct tuntap *tt)
 {
-#ifdef _WIN32
+#ifdef TARGET_AMIGA /* AmiOpenVPN-POC2 */
+    (void)tt;
+    return AOVPN_TUN_EVENT;
+#elif defined(_WIN32)
     return &tt->rw_handle;
 #else
     return tt->fd;

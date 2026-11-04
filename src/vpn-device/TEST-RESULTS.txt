@@ -1,0 +1,53 @@
+AmiOpenVPN vpn.device POC1 — local tests
+
+PASSED (executed on Linux host, compiling the actual device sources with a
+mocked Exec/SANA-II API):
+- SANA-II query: PPP wire / 32-bit addresses / MTU 1400
+- Async CMD_READ followed by CMD_WRITE, unit 0 -> 1
+- Buffered CMD_WRITE followed by CMD_READ, unit 1 -> 0
+- AbortIO of pending CMD_READ produces exactly one completion
+- 16-frame receive ring capacity, overflow return, CMD_FLUSH
+- Closing with a pending read aborts that read; absent peer rejects writes
+- Fixed-capacity FIFO wraparound, empty and clear
+- Byte-identical upstream helper functions validated (5 helpers)
+- Host-only syntax check of driver+probe with mocked NDK declarations
+
+NOT EXECUTED / NOT VALIDATED:
+- Cross-compilation with actual m68k-amigaos-gcc + NDK (not installed here)
+- Exec resident/hunk/vectors load validation
+- Device on physical AmigaOS or PiStorm
+- MiamiDX SANA-II compatibility
+- Native OpenVPN tun.c integration
+- Encryption/TLS handshake or end-to-end VPN traffic
+
+Source snapshot intended for audit/test; not hardware validated.
+
+ON-TARGET HARDWARE VALIDATION (reported 2026-10-21)
+Debian cross-build:
+    make CC=m68k-amigaos-gcc SANA_INCLUDE=/root/sana/include all
+    Both vpn.device and AOVPN-VPNProbe built; one non-fatal printf format
+    warning in the test tool has been corrected in this consolidated ZIP.
+
+AmigaOS Shell: AOVPN-VPNProbe
+    PASS: S2_DEVICEQUERY, PPP wire, MTU 1400
+    PASS: unit 0 -> unit 1 (96 IPv4 bytes)
+    PASS: unit 1 -> unit 0 (96 IPv4 bytes)
+    PASS: buffered write-before-read FIFO
+    PASS: queued CMD_READ aborted and replied once
+    PASS: vpn.device SANA-II bidirectional IP transport
+
+This hardware test does not prove MiamiDX attachment, an OpenVPN session,
+SANA-II conformance under load or the future TUN/backend integration.
+
+POC2 FIX3B A/B ISOLATION — HOST TESTS (2026-10-21)
+- PASS: CMD_WRITE(0x0021) -> CMD_READ(0x0800)
+- PASS: CMD_WRITE(0x0800) -> CMD_READ(0x0021)
+- PASS: 0x0021 TRACKTYPE returns NOT_SUPPORTED (FIX2 semantics)
+- PASS: 0x0021 GETTYPESTATS returns BAD_ARGUMENT (FIX2 semantics)
+- PASS: 0x0021 UNTRACKTYPE returns BAD_STATE/NOT_TRACKED (FIX2 semantics)
+- PASS: 0x0800 TRACKTYPE/GETTYPESTATS/UNTRACKTYPE remains usable
+- PASS: 15 simultaneous 0x0021 CMD_READ requests, each replied once on S2_OFFLINE
+- PASS: all preceding FIFO, diagnostics, AbortIO, helper-reuse and syntax tests
+- Not executed: actual m68k cross-build and physical MiamiDX test.
+- Explicit limitation: host Exec mocks cannot prove 68k ABI or MiamiDX
+  lifecycle correctness. This experiment is NOT hardware validated.

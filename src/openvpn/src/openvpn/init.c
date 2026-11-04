@@ -56,6 +56,16 @@
 #include "dco.h"
 
 #include "memdbg.h"
+#ifdef TARGET_AMIGA
+/* POC2 FIX22: diagnostic only, remove before a release. */
+#define AOVPN22_TRACE(message) do { \
+    if (aovpn_diagnostics_enabled()) { \
+        fputs("AOVPN22 " message "\n", stderr); \
+        fflush(stderr); \
+    } \
+} while (0)
+#endif
+
 
 
 static struct context *static_context; /* GLOBAL */
@@ -815,6 +825,10 @@ init_port_share(struct context *c)
 bool
 init_static(void)
 {
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("I00 init_static entered");
+#endif
+
     /* configure_path (); */
 
 #if defined(DMALLOC)
@@ -829,12 +843,18 @@ init_static(void)
      * strong random numbers are required.
      */
     struct timeval tv;
+    #ifdef TARGET_AMIGA
+    AOVPN22_TRACE("I01 before gettimeofday");
+    #endif
     if (!gettimeofday(&tv, NULL))
     {
         const unsigned int seed = (unsigned int) tv.tv_sec ^ tv.tv_usec;
         srandom(seed);
     }
 
+    #ifdef TARGET_AMIGA
+    AOVPN22_TRACE("I02 after time/seed, before error_reset");
+    #endif
     error_reset();              /* initialize error.c */
     reset_check_status();       /* initialize status check code in socket.c */
 
@@ -852,9 +872,21 @@ init_static(void)
     }
 #endif
 
+    #ifdef TARGET_AMIGA
+    AOVPN22_TRACE("I03 before update_time");
+    #endif
     update_time();
+    #ifdef TARGET_AMIGA
+    AOVPN22_TRACE("I04 after update_time");
+    #endif
 
+    #ifdef TARGET_AMIGA
+    AOVPN22_TRACE("I05 before init_ssl_lib");
+    #endif
     init_ssl_lib();
+    #ifdef TARGET_AMIGA
+    AOVPN22_TRACE("I06 after init_ssl_lib");
+    #endif
 
 #ifdef SCHEDULE_TEST
     schedule_test();
@@ -930,6 +962,9 @@ init_static(void)
     }
 #endif
 
+    #ifdef TARGET_AMIGA
+    AOVPN22_TRACE("I07 init_static successful");
+    #endif
     return true;
 }
 
@@ -4407,8 +4442,17 @@ persist_client_stats(struct context *c)
 void
 init_instance_handle_signals(struct context *c, const struct env_set *env, const unsigned int flags)
 {
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N00 before pre_init_signal_catch");
+#endif
     pre_init_signal_catch();
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N01 before init_instance");
+#endif
     init_instance(c, env, flags);
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N19 after init_instance");
+#endif
     post_init_signal_catch();
 
     /*
@@ -4433,6 +4477,9 @@ init_instance(struct context *c, const struct env_set *env, const unsigned int f
     const bool child = (c->mode == CM_CHILD_TCP || c->mode == CM_CHILD_UDP);
     int link_socket_mode = LS_MODE_DEFAULT;
 
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N02 init_instance entered");
+#endif
     /* init garbage collection level */
     gc_init(&c->c2.gc);
 
@@ -4472,8 +4519,14 @@ init_instance(struct context *c, const struct env_set *env, const unsigned int f
     /* Resets all values to the initial values from the config where needed */
     pre_connect_restore(&c->options, &c->c2.gc);
 
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N03 before next_connection_entry");
+#endif
     /* map in current connection entry */
     next_connection_entry(c);
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N04 after next_connection_entry");
+#endif
 
     /* link_socket_mode allows CM_CHILD_TCP
      * instances to inherit acceptable fds
@@ -4552,6 +4605,9 @@ init_instance(struct context *c, const struct env_set *env, const unsigned int f
         c->c2.occ_op = occ_reset_op();
     }
 
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N05 before do_event_set_init");
+#endif
     /* our wait-for-i/o objects, different for posix vs. win32 */
     if (c->mode == CM_P2P)
     {
@@ -4565,6 +4621,9 @@ init_instance(struct context *c, const struct env_set *env, const unsigned int f
     /* initialize HTTP or SOCKS proxy object at scope level 2 */
     init_proxy(c);
 
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N06 after event set/proxy init; before socket allocation");
+#endif
     /* allocate our socket object */
     if (c->mode == CM_P2P || c->mode == CM_TOP || c->mode == CM_CHILD_TCP)
     {
@@ -4579,6 +4638,9 @@ init_instance(struct context *c, const struct env_set *env, const unsigned int f
     }
 #endif
 
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N07 after socket allocation; before do_init_crypto");
+#endif
     /* init crypto layer */
     {
         unsigned int crypto_flags = 0;
@@ -4595,6 +4657,9 @@ init_instance(struct context *c, const struct env_set *env, const unsigned int f
             crypto_flags = CF_INIT_TLS_MULTI;
         }
         do_init_crypto(c, crypto_flags);
+#ifdef TARGET_AMIGA
+        AOVPN22_TRACE("N08 after do_init_crypto");
+#endif
         if (IS_SIG(c) && !child)
         {
             goto sig;
@@ -4629,12 +4694,18 @@ init_instance(struct context *c, const struct env_set *env, const unsigned int f
     }
 #endif
 
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N09 frame and buffers ready; before socket phase1");
+#endif
     /* bind the TCP/UDP socket */
     if (c->mode == CM_P2P || c->mode == CM_TOP || c->mode == CM_CHILD_TCP)
     {
         link_socket_init_phase1(c, link_socket_mode);
     }
 
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N10 after socket phase1; before TUN");
+#endif
     /* initialize tun/tap device object,
      * open tun/tap device, ifconfig, run up script, etc. */
     if (!(options->up_delay || PULL_DEFINED(options)) && (c->mode == CM_P2P || c->mode == CM_TOP))
@@ -4658,6 +4729,9 @@ init_instance(struct context *c, const struct env_set *env, const unsigned int f
         do_init_traffic_shaper(c);
     }
 
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N11 after TUN/OCC init; before do_init_first_time");
+#endif
     /* do one-time inits, and possibly become a daemon here */
     do_init_first_time(c);
 
@@ -4672,6 +4746,9 @@ init_instance(struct context *c, const struct env_set *env, const unsigned int f
     /* initialise connect timeout timer */
     do_init_server_poll_timeout(c);
 
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N12 before socket phase2");
+#endif
     /* finalize the TCP/UDP socket */
     if (c->mode == CM_P2P || c->mode == CM_TOP || c->mode == CM_CHILD_TCP)
     {
@@ -4686,6 +4763,9 @@ init_instance(struct context *c, const struct env_set *env, const unsigned int f
                                 get_link_socket_info(c));
     }
 
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N13 after socket phase2");
+#endif
     /*
      * Actually do UID/GID downgrade, and chroot, if requested.
      * May be delayed by --client, --pull, or --up-delay.
@@ -4714,12 +4794,18 @@ init_instance(struct context *c, const struct env_set *env, const unsigned int f
     }
 #endif
 
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N14 after init timers; before signal check");
+#endif
     /* Check for signals */
     if (IS_SIG(c))
     {
         goto sig;
     }
 
+#ifdef TARGET_AMIGA
+    AOVPN22_TRACE("N15 init_instance success");
+#endif
     return;
 
 sig:

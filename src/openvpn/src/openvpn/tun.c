@@ -1906,7 +1906,7 @@ tun_dco_enabled(struct tuntap *tt)
 #endif
 
 
-#if !(defined(_WIN32) || defined(TARGET_LINUX))
+#if !(defined(_WIN32) || defined(TARGET_LINUX) || defined(TARGET_AMIGA)) /* AmiOpenVPN-POC2 */
 static void
 open_tun_generic(const char *dev, const char *dev_type, const char *dev_node,
                  struct tuntap *tt)
@@ -2067,7 +2067,7 @@ open_tun_dco_generic(const char *dev, const char *dev_type,
 }
 #endif /* TARGET_LINUX || TARGET_FREEBSD*/
 
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(TARGET_AMIGA) /* AmiOpenVPN-POC2 */
 static void
 close_tun_generic(struct tuntap *tt)
 {
@@ -2081,7 +2081,9 @@ close_tun_generic(struct tuntap *tt)
 }
 #endif /* !_WIN32 */
 
-#if defined (TARGET_ANDROID)
+#if defined(TARGET_AMIGA) /* AmiOpenVPN-POC2 */
+#include "amiga_tun_poc.inc"
+#elif defined (TARGET_ANDROID)
 void
 open_tun(const char *dev, const char *dev_type, const char *dev_node, struct tuntap *tt,
          openvpn_net_ctx_t *ctx)

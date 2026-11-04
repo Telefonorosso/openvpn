@@ -61,7 +61,7 @@ openvpn_SOURCES = \
 	env_set.c env_set.h \
 	errlevel.h \
 	error.c error.h \
-	event.c event.h \
+	event.c event.h amiga_event_backend.inc amiga_platform.c amiga_platform.h amiga_fs.c amiga_tun_poc.inc \
 	fdmisc.c fdmisc.h \
 	forward.c forward.h \
 	fragment.c fragment.h \

@@ -19,5 +19,7 @@ libcompat_la_SOURCES = \
 	compat-dirname.c \
 	compat-basename.c \
 	compat-gettimeofday.c \
+    amiga_gettimeofday.c \
+    amiga_timer_bridge.c \
 	compat-daemon.c \
 	compat-strsep.c

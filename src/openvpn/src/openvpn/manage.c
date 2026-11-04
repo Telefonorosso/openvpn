@@ -27,6 +27,23 @@
 
 #include "syshead.h"
 
+/* AmiOpenVPN POC2 FIX17: do not insert preprocessor directives inside calls. */
+#ifdef TARGET_AMIGA
+#include "platform.h"
+static void
+aovpn_management_sleep_seconds(unsigned int seconds)
+{
+    while (seconds != 0U)
+    {
+        platform_sleep_milliseconds(1000U);
+        --seconds;
+    }
+}
+#else
+#define aovpn_management_sleep_seconds(seconds) sleep(seconds)
+#endif
+
+
 #ifdef ENABLE_MANAGEMENT
 
 #include "error.h"
@@ -3480,7 +3497,7 @@ management_event_loop_n_seconds(struct management *man, int sec)
     }
     else if (sec > 0)
     {
-        sleep(sec);
+        aovpn_management_sleep_seconds(sec);
     }
 }
 
@@ -4137,7 +4154,7 @@ management_sleep(const int n)
 #else
         if (n > 0)
         {
-            sleep(n);
+            aovpn_management_sleep_seconds(n);
         }
 #endif
     }
@@ -4189,7 +4206,7 @@ management_sleep(const int n)
 #else
     if (n > 0)
     {
-        sleep(n);
+        aovpn_management_sleep_seconds(n);
     }
 #endif /* ifdef _WIN32 */
 }

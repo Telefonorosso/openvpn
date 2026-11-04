@@ -202,6 +202,21 @@ get_console_input(const char *prompt, const bool echo, char *input, const int ca
 
 #if defined(_WIN32)
     return get_console_input_win32(prompt, echo, input, capacity);
+#elif defined(TARGET_AMIGA) /* AmiOpenVPN POC2 FIX15 */
+    /* Never echo a secret because termios() is unavailable on AmigaOS.
+     * This POC only supports noninteractive credentials for now. */
+    if (!echo)
+    {
+        msg(M_WARN, "AmigaOS: interactive hidden password entry is not yet supported");
+        return false;
+    }
+    fprintf(stderr, "%s", prompt);
+    fflush(stderr);
+    if (fgets(input, capacity, stdin) != NULL)
+    {
+        chomp(input);
+        ret = true;
+    }
 #elif defined(HAVE_TERMIOS_H)
     bool restore_tty = false;
     struct termios tty_tmp, tty_save;

@@ -347,8 +347,13 @@ typedef int MIB_TCP_STATE;
 #include <sys/mman.h>
 #endif
 
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(TARGET_AMIGA) /* AmiOpenVPN-POC2 */
 #include <sys/utsname.h>
+#endif
+
+#ifdef TARGET_AMIGA /* AmiOpenVPN-POC2 FIX7: after POSIX headers */
+#include "amiga_platform.h"
+#include "amiga_ipv6_missing.h" /* AmiOpenVPN FIX14 */
 #endif
 
 /*
@@ -483,7 +488,7 @@ socket_defined(const socket_descriptor_t sd)
 /*
  * Do we support Unix domain sockets?
  */
-#if defined(PF_UNIX) && !defined(_WIN32)
+#if defined(PF_UNIX) && !defined(_WIN32) && !defined(TARGET_AMIGA) /* AmiOpenVPN-POC2 */
 #define UNIX_SOCK_SUPPORT 1
 #else
 #define UNIX_SOCK_SUPPORT 0
@@ -512,7 +517,9 @@ socket_defined(const socket_descriptor_t sd)
  * (Note: on win32 select is faster than poll and we avoid
  * using poll there)
  */
-#if defined(HAVE_POLL_H) || !defined(_WIN32)
+#if defined(TARGET_AMIGA) /* AmiOpenVPN-POC2 */
+#define POLL 0
+#elif defined(HAVE_POLL_H) || !defined(_WIN32)
 #define POLL 1
 #else
 #define POLL 0
@@ -540,6 +547,19 @@ socket_defined(const socket_descriptor_t sd)
  */
 #ifdef TARGET_LINUX
 #define ENABLE_MEMSTATS
+#endif
+
+#ifdef TARGET_AMIGA
+/* POC5 DNS FIX1: AmigaOS IPv4 addrinfo shim. Numeric addresses retain
+ * the POC3 FIX4 path; hostnames use bsdsocket.library gethostbyname().
+ * Never enter the crashing libc getaddrinfo() path.  Use the matching
+ * deallocator in every OpenVPN cleanup path.
+ */
+int aovpn_amiga_getaddrinfo(const char *hostname, const char *servname,
+                           const struct addrinfo *hints, struct addrinfo **res);
+void aovpn_amiga_freeaddrinfo(struct addrinfo *res);
+#define getaddrinfo aovpn_amiga_getaddrinfo
+#define freeaddrinfo aovpn_amiga_freeaddrinfo
 #endif
 
 #endif /* ifndef SYSHEAD_H */

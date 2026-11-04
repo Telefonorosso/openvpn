@@ -31,6 +31,17 @@
 #endif
 
 #include "syshead.h"
+#ifdef TARGET_AMIGA
+/* AmiOpenVPN FIX23 SSL deep trace -- diagnostic only. */
+#include <stdio.h>
+#define AOVPN23_TRACE(text) do { \
+    if (aovpn_diagnostics_enabled()) { \
+        fputs("AOVPN23 " text "\n", stderr); \
+        fflush(stderr); \
+    } \
+} while (0)
+#endif
+
 
 #if defined(ENABLE_CRYPTO_OPENSSL)
 
@@ -83,6 +94,10 @@ int mydata_index; /* GLOBAL */
 void
 tls_init_lib(void)
 {
+    #ifdef TARGET_AMIGA
+    AOVPN23_TRACE("T0 tls_init_lib entered");
+    #endif
+
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
     SSL_library_init();
 #ifndef ENABLE_SMALL
@@ -90,8 +105,41 @@ tls_init_lib(void)
 #endif
     OpenSSL_add_all_algorithms();
 #endif
+    #ifdef TARGET_AMIGA
+    AOVPN23_TRACE("T1 before SSL_get_ex_new_index");
+    #endif
+    #ifdef TARGET_AMIGA
+    /* AOVPN24: AmiSSL base probe - diagnostic only */
+    if (aovpn_diagnostics_enabled()) {
+        fprintf(stderr, "AOVPN24 AmiSSLBase=%p AmiSSLExtBase=%p\n",
+                (void *)AmiSSLBase, (void *)AmiSSLExtBase);
+        fflush(stderr);
+    }
+    if (AmiSSLBase == NULL || AmiSSLExtBase == NULL)
+    {
+        fputs("AOVPN24 ERROR: AmiSSL not initialised; no SSL dispatch attempted\n", stderr);
+        fflush(stderr);
+        exit(24); /* fail closed, no OpenSSL call */
+    }
+    #endif
     mydata_index = SSL_get_ex_new_index(0, "struct session *", NULL, NULL, NULL);
+    #ifdef TARGET_AMIGA
+    AOVPN23_TRACE("T2 after SSL_get_ex_new_index");
+    #endif
+    #ifdef TARGET_AMIGA
+    if (aovpn_diagnostics_enabled()) {
+        fprintf(stderr, "AOVPN23 T2 index=%d\n", mydata_index); fflush(stderr);
+    }
+    #endif
+
+    #ifdef TARGET_AMIGA
+    AOVPN23_TRACE("T3 before mydata_index ASSERT");
+    #endif
     ASSERT(mydata_index >= 0);
+    #ifdef TARGET_AMIGA
+    AOVPN23_TRACE("T4 after mydata_index ASSERT");
+    #endif
+
 }
 
 void
@@ -788,6 +836,43 @@ tls_ctx_load_ecdh_params(struct tls_root_ctx *ctx, const char *curve_name)
 #endif /* OPENSSL_NO_EC */
 }
 
+
+/* AmiOpenVPN POC2 FIX15: AmiSSL does not export the stdio-specific
+ * d2i_PKCS12_fp(). Read the binary P12 with the C runtime and let AmiSSL
+ * parse it through its existing, portable memory BIO decoder.
+ * Size limit prevents unbounded allocations from malformed inputs. */
+#ifdef TARGET_AMIGA
+static PKCS12 *
+aovpn_pkcs12_from_fp(FILE *fp)
+{
+    enum { MAX_P12_SIZE = 8 * 1024 * 1024 };
+    unsigned char *bytes = NULL;
+    BIO *bio = NULL;
+    PKCS12 *result = NULL;
+    long size;
+    if (fseek(fp, 0, SEEK_END) != 0) return NULL;
+    size = ftell(fp);
+    if (size <= 0 || size > MAX_P12_SIZE || fseek(fp, 0, SEEK_SET) != 0)
+        return NULL;
+    bytes = (unsigned char *)malloc((size_t)size);
+    if (!bytes) return NULL;
+    if (fread(bytes, 1, (size_t)size, fp) == (size_t)size)
+    {
+        bio = BIO_new_mem_buf(bytes, (int)size);
+        if (bio) result = d2i_PKCS12_bio(bio, NULL);
+    }
+    BIO_free(bio);
+    /* Clear encoded P12 bytes, which can contain sensitive metadata. */
+    {
+        volatile unsigned char *p = bytes;
+        size_t i;
+        for (i = 0; i < (size_t)size; ++i) p[i] = 0;
+    }
+    free(bytes);
+    return result;
+}
+#endif /* TARGET_AMIGA */
+
 int
 tls_ctx_load_pkcs12(struct tls_root_ctx *ctx, const char *pkcs12_file,
                     bool pkcs12_file_inline, bool load_ca_file)
@@ -824,7 +909,11 @@ tls_ctx_load_pkcs12(struct tls_root_ctx *ctx, const char *pkcs12_file,
         {
             crypto_msg(M_FATAL, "Error opening file %s", pkcs12_file);
         }
+        #ifdef TARGET_AMIGA
+        p12 = aovpn_pkcs12_from_fp(fp);
+#else
         p12 = d2i_PKCS12_fp(fp, NULL);
+#endif
         fclose(fp);
         if (!p12)
         {
@@ -986,7 +1075,11 @@ tls_ctx_load_cert_file(struct tls_root_ctx *ctx, const char *cert_file,
 
     if (in == NULL)
     {
+#if defined(TARGET_AMIGA) /* AmiOpenVPN FIX13 */
+        msg(M_WARN, "AmiSSL: certificate BIO could not be opened");
+#else
         SSLerr(SSL_F_SSL_CTX_USE_CERTIFICATE_FILE, ERR_R_SYS_LIB);
+#endif /* TARGET_AMIGA */
         goto end;
     }
 
@@ -995,7 +1088,11 @@ tls_ctx_load_cert_file(struct tls_root_ctx *ctx, const char *cert_file,
                           SSL_CTX_get_default_passwd_cb_userdata(ctx->ctx));
     if (x == NULL)
     {
+#if defined(TARGET_AMIGA) /* AmiOpenVPN FIX13 */
+        msg(M_WARN, "AmiSSL: certificate PEM parsing failed");
+#else
         SSLerr(SSL_F_SSL_CTX_USE_CERTIFICATE_FILE, ERR_R_PEM_LIB);
+#endif /* TARGET_AMIGA */
         goto end;
     }
 

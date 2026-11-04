@@ -783,7 +783,7 @@ static const char usage_message[] =
 #endif                          /* ENABLE_PKCS11 */
     "\n"
     "General Standalone Options:\n"
-#ifdef ENABLE_DEBUG
+#if defined(ENABLE_DEBUG) || defined(TARGET_AMIGA)
     "--show-gateway : Show info about default gateway.\n"
 #endif
 ;
@@ -5798,6 +5798,20 @@ add_option(struct options *options,
         VERIFY_PERMISSION(OPT_P_GENERAL);
         usage_version();
     }
+#ifdef TARGET_AMIGA
+    else if (streq(p[0], "aovpn-diagnostics"))
+    {
+        VERIFY_PERMISSION(OPT_P_GENERAL);
+        /* Only the local profile/CLI may enable raw AmigaOS traces. */
+        if (pull_mode || p[1])
+        {
+            msg(msglevel, "--aovpn-diagnostics is local-only and takes no arguments");
+            goto err;
+        }
+        aovpn_set_diagnostics(1);
+        msg(M_INFO, "AmiOpenVPN: custom diagnostics enabled");
+    }
+#endif
     else if (streq(p[0], "config") && p[1] && !p[2])
     {
         VERIFY_PERMISSION(OPT_P_CONFIG);
@@ -5810,7 +5824,7 @@ add_option(struct options *options,
 
         read_config_file(options, p[1], level, file, line, msglevel, permission_mask, option_types_found, es);
     }
-#if defined(ENABLE_DEBUG) && !defined(ENABLE_SMALL)
+#if (defined(ENABLE_DEBUG) || defined(TARGET_AMIGA)) && !defined(ENABLE_SMALL)
     else if (streq(p[0], "show-gateway") && !p[2])
     {
         struct route_gateway_info rgi;
@@ -5826,6 +5840,15 @@ add_option(struct options *options,
         get_default_gateway(&rgi, &net_ctx);
         get_default_gateway_ipv6(&rgi6, &remote, &net_ctx);
         print_default_gateway(M_INFO, &rgi, &rgi6);
+#ifdef TARGET_AMIGA
+        /* Dedicated, non-networking probe: report failure to DOS when
+         * MiamiDX has no verifiable default route. */
+        if (!(rgi.flags & RGI_ADDR_DEFINED))
+        {
+            msg(M_WARN, "AOVPN-GW: --show-gateway did not find a valid IPv4 default route");
+            openvpn_exit(OPENVPN_EXIT_STATUS_ERROR);
+        }
+#endif
         openvpn_exit(OPENVPN_EXIT_STATUS_GOOD); /* exit point */
     }
 #endif

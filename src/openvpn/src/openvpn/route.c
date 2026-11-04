@@ -3879,6 +3879,10 @@ done:
 
 #undef max
 
+#elif defined(TARGET_AMIGA)
+
+#include "amiga_gateway_backend.inc"
+
 #else  /* if defined(_WIN32) */
 
 /*

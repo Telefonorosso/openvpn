@@ -1,0 +1,108 @@
+--- a/src/openvpn/openvpn.c
++++ b/src/openvpn/openvpn.c
+@@ -319,10 +319,13 @@
+             #endif
+             if (print_openssl_info(&c.options))
+             {
+                 break;
+             }
++#ifdef TARGET_AMIGA
++            AOVPN22_TRACE("O15 print_openssl_info returned false");
++#endif
+ 
+             /* --genkey mode? */
+             if (do_genkey(&c.options))
+             {
+                 break;
+@@ -331,41 +334,68 @@
+             /* tun/tap persist command? */
+             if (do_persist_tuntap(&c.options, &c.net_ctx))
+             {
+                 break;
+             }
++#ifdef TARGET_AMIGA
++            AOVPN22_TRACE("O16 genkey/persist checks passed");
++#endif
+ 
+             /* sanity check on options */
+             options_postprocess(&c.options, c.es);
++#ifdef TARGET_AMIGA
++            AOVPN22_TRACE("O17 options_postprocess passed");
++#endif
+ 
+             /* show all option settings */
+             show_settings(&c.options);
++#ifdef TARGET_AMIGA
++            AOVPN22_TRACE("O18 show_settings passed");
++#endif
+ 
+             /* print version number */
+             msg(M_INFO, "%s", title_string);
+ #ifdef _WIN32
+             show_windows_version(M_INFO);
+ #endif
+             show_library_versions(M_INFO);
++#ifdef TARGET_AMIGA
++            AOVPN22_TRACE("O19 show_library_versions passed");
++#endif
+ 
+             show_dco_version(M_INFO);
++#ifdef TARGET_AMIGA
++            AOVPN22_TRACE("O20 show_dco_version passed");
++#endif
+ 
+             /* misc stuff */
++#ifdef TARGET_AMIGA
++            AOVPN22_TRACE("O21 before pre_setup");
++#endif
+             pre_setup(&c.options);
++#ifdef TARGET_AMIGA
++            AOVPN22_TRACE("O22 after pre_setup");
++#endif
+ 
+             /* test crypto? */
+             if (do_test_crypto(&c.options))
+             {
+                 break;
+             }
++#ifdef TARGET_AMIGA
++            AOVPN22_TRACE("O23 crypto test check passed");
++#endif
+ 
+             /* Query passwords before becoming a daemon if we don't use the
+              * management interface to get them. */
+ #ifdef ENABLE_MANAGEMENT
+             if (!(c.options.management_flags & MF_QUERY_PASSWORDS))
+ #endif
+             init_query_passwords(&c);
++#ifdef TARGET_AMIGA
++            AOVPN22_TRACE("O24 initial credential query passed");
++#endif
+ 
+             /* become a daemon if --daemon */
+             if (c.first_time)
+             {
+                 c.did_we_daemonize = possibly_become_daemon(&c.options);
+@@ -385,13 +415,22 @@
+             }
+ #endif
+ 
+             /* set certain options as environmental variables */
+             setenv_settings(c.es, &c.options);
++#ifdef TARGET_AMIGA
++            AOVPN22_TRACE("O25 setenv_settings passed");
++#endif
+ 
+             /* finish context init */
++#ifdef TARGET_AMIGA
++            AOVPN22_TRACE("O26 before context_init_1");
++#endif
+             context_init_1(&c);
++#ifdef TARGET_AMIGA
++            AOVPN22_TRACE("O27 after context_init_1");
++#endif
+ 
+             do
+             {
+                 /* run tunnel depending on mode */
+                 switch (c.options.mode)

@@ -36,6 +36,13 @@
 
 #include "run_command.h"
 
+#ifdef TARGET_AMIGA
+#include <dos/var.h>
+#include <proto/dos.h>
+#include <stdlib.h>
+#include <string.h>
+#endif
+
 /* contains an SSEC_x value defined in platform.h */
 static int script_security_level = SSEC_BUILT_IN; /* GLOBAL */
 
@@ -65,7 +72,14 @@ system_error_message(int stat, struct gc_arena *gc)
             buf_printf(&out, "disallowed by script-security setting");
             break;
 
-#ifdef _WIN32
+#if defined(TARGET_AMIGA)
+        case OPENVPN_EXECVE_ERROR:
+            buf_printf(&out, "AmigaDOS command launch failed");
+            break;
+        default:
+            buf_printf(&out, "AmigaDOS script returned code %d", stat);
+            break;
+#elif defined(_WIN32)
         case OPENVPN_EXECVE_ERROR:
             buf_printf(&out, "external program did not execute -- ");
         /* fall through */
@@ -120,6 +134,267 @@ openvpn_execve_allowed(const unsigned int flags)
 }
 
 
+#ifdef TARGET_AMIGA
+/*
+ * POC5-A: minimal native AmigaDOS script executor.
+ *
+ * This stage intentionally supports only AmigaDOS Execute scripts, not
+ * POSIX shell scripts or arbitrary executable commands. It does not
+ * modify MiamiDX or invoke anything unless a user-configured OpenVPN
+ * hook explicitly requests a script at script-security >= 2.
+ *
+ * Never feed provider-controlled text into the Shell command stream.
+ * Only path/arguments using this conservative character subset are
+ * accepted. OpenVPN environment values are passed via private process
+ * LocalVars, NOT interpolated into the command string or ENV:.
+ */
+struct aovpn_local_backup
+{
+    char *name;
+    UBYTE *original;
+    ULONG original_len;
+    ULONG original_flags;
+    bool had_original;
+};
+
+static void
+aovpn_restore_local_vars(struct aovpn_local_backup *b, size_t used)
+{
+    while (used > 0)
+    {
+        struct aovpn_local_backup *entry = &b[--used];
+        if (entry->name)
+        {
+            if (entry->had_original)
+            {
+                if (!SetVar((STRPTR)entry->name,
+                            (STRPTR)entry->original,
+                            (LONG)entry->original_len,
+                            GVF_LOCAL_ONLY | (entry->original_flags & GVF_BINARY_VAR)))
+                {
+                    msg(M_WARN, "AOVPN-SCRIPT: failed restoring local variable %s", entry->name);
+                }
+            }
+            else if (!DeleteVar((STRPTR)entry->name, GVF_LOCAL_ONLY))
+            {
+                msg(M_WARN, "AOVPN-SCRIPT: failed deleting temporary local variable %s", entry->name);
+            }
+        }
+        free(entry->original);
+        free(entry->name);
+    }
+}
+
+static bool
+aovpn_ascii_alpha(unsigned char c)
+{
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+static bool
+aovpn_ascii_digit(unsigned char c)
+{
+    return c >= '0' && c <= '9';
+}
+
+static bool
+aovpn_env_name_valid(const char *s, size_t n)
+{
+    size_t i;
+    if (!n || n > 127 || !(aovpn_ascii_alpha((unsigned char)s[0]) || s[0] == '_'))
+    {
+        return false;
+    }
+    for (i = 1; i < n; ++i)
+    {
+        if (!(aovpn_ascii_alpha((unsigned char)s[i]) || aovpn_ascii_digit((unsigned char)s[i]) || s[i] == '_'))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool
+aovpn_script_arg_valid(const char *s)
+{
+    const unsigned char *p = (const unsigned char *)s;
+    if (!s)
+    {
+        return false;
+    }
+    for (; *p; ++p)
+    {
+        const unsigned char c = *p;
+        if (!((aovpn_ascii_alpha(c) || aovpn_ascii_digit(c)) || c == '_' || c == '-' || c == '.' || c == ':'
+              || c == '/' || c == '+' || c == '@' || c == '=' || c == ','
+              || c == ' '))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+/* C:Execute + arguments wrapped in double quotes; quotes, escapes, control
+ * characters and command separators are rejected by the validator above.
+ * Do not convert this to a naive argv_str() or strcat() implementation. */
+static char *
+aovpn_script_command(const struct argv *a)
+{
+    static const char prefix[] = "C:Execute ";
+    size_t total = sizeof(prefix);
+    size_t i;
+    char *cmd, *p;
+
+    if (!a || !a->argc || !a->argv || !a->argv[0]
+        || !a->argv[0][0])
+    {
+        return NULL;
+    }
+    for (i = 0; i < a->argc; ++i)
+    {
+        size_t n;
+        if (!aovpn_script_arg_valid(a->argv[i]))
+        {
+            return NULL;
+        }
+        n = strlen(a->argv[i]);
+        if (n > 1024 || total > 4096 - n - 4)
+        {
+            return NULL;
+        }
+        total += n + 3;
+    }
+    cmd = malloc(total);
+    if (!cmd)
+    {
+        return NULL;
+    }
+    p = cmd;
+    memcpy(p, prefix, sizeof(prefix) - 1);
+    p += sizeof(prefix) - 1;
+    for (i = 0; i < a->argc; ++i)
+    {
+        size_t n = strlen(a->argv[i]);
+        *p++ = '"';
+        memcpy(p, a->argv[i], n);
+        p += n;
+        *p++ = '"';
+        if (i + 1 < a->argc)
+        {
+            *p++ = ' ';
+        }
+    }
+    *p = '\0';
+    return cmd;
+}
+
+static int
+aovpn_amiga_script_execve(const struct argv *a, const struct env_set *es)
+{
+    struct gc_arena gc = gc_new();
+    const char **env = make_env_array(es, true, &gc);
+    struct aovpn_local_backup *saved = NULL;
+    size_t n = 0, used = 0, i;
+    char *cmd = aovpn_script_command(a);
+    int result = OPENVPN_EXECVE_ERROR;
+
+    if (!cmd)
+    {
+        msg(M_WARN, "AOVPN-SCRIPT: rejected script path/argument (restricted character set)");
+        goto done;
+    }
+    while (env && env[n])
+    {
+        ++n;
+    }
+    if (n > 1024)
+    {
+        msg(M_WARN, "AOVPN-SCRIPT: too many environment variables");
+        goto done;
+    }
+    saved = calloc(n ? n : 1, sizeof(*saved));
+    if (!saved)
+    {
+        goto done;
+    }
+
+    /* Save the caller's local variables and restore them even on failure.
+     * Copy previous LocalVar data before SetVar invalidates the node. */
+    for (i = 0; i < n; ++i)
+    {
+        const char *eq = strchr(env[i], '=');
+        const size_t len = eq ? (size_t)(eq - env[i]) : 0;
+        struct LocalVar *old;
+        struct aovpn_local_backup *b = &saved[used];
+        if (!eq || !aovpn_env_name_valid(env[i], len))
+        {
+            msg(M_WARN, "AOVPN-SCRIPT: invalid environment variable name");
+            goto restore;
+        }
+        b->name = malloc(len + 1);
+        if (!b->name)
+        {
+            goto restore;
+        }
+        memcpy(b->name, env[i], len);
+        b->name[len] = '\0';
+        ++used;
+        old = FindVar((STRPTR)b->name, LV_VAR);
+        if (old)
+        {
+            if (old->lv_Len > 65535)
+            {
+                goto restore;
+            }
+            b->had_original = true;
+            b->original_len = old->lv_Len;
+            b->original_flags = old->lv_Flags;
+            b->original = malloc(b->original_len ? b->original_len : 1);
+            if (!b->original)
+            {
+                /* Nothing has been changed for this entry yet. */
+                b->had_original = false;
+                --used;
+                free(b->name);
+                b->name = NULL;
+                goto restore;
+            }
+            if (b->original_len)
+            {
+                memcpy(b->original, old->lv_Value, b->original_len);
+            }
+        }
+        if (!SetVar((STRPTR)b->name, (STRPTR)(eq + 1), -1, GVF_LOCAL_ONLY))
+        {
+            msg(M_WARN, "AOVPN-SCRIPT: cannot export local variable %s", b->name);
+            goto restore;
+        }
+    }
+    /* SystemTagList creates a synchronous Shell; NP_CopyVars defaults TRUE
+     * on AmigaOS V36+. The child inherits our exported local variables. */
+    {
+        LONG rc = SystemTagList((STRPTR)cmd, NULL);
+        if (rc >= 0 && rc <= 255)
+        {
+            result = (int)rc; /* Native Amiga return code, not waitpid status. */
+        }
+        else
+        {
+            msg(M_WARN, "AOVPN-SCRIPT: AmigaDOS SystemTagList failed (%ld)", (long)rc);
+        }
+    }
+restore:
+    aovpn_restore_local_vars(saved, used);
+done:
+    free(saved);
+    free(cmd);
+    gc_free(&gc);
+    return result;
+}
+#endif /* TARGET_AMIGA */
+
 #ifndef _WIN32
 /*
  * Run execve() inside a fork().  Designed to replicate the semantics of system() but
@@ -137,7 +412,21 @@ openvpn_execve(const struct argv *a, const struct env_set *es, const unsigned in
 
     if (a && a->argv[0])
     {
-#if defined(ENABLE_FEATURE_EXECVE)
+#ifdef TARGET_AMIGA
+        if (openvpn_execve_allowed(flags))
+        {
+            ret = aovpn_amiga_script_execve(a, es);
+        }
+        else
+        {
+            ret = OPENVPN_EXECVE_NOT_ALLOWED;
+            if (!warn_shown && (script_security() < SSEC_SCRIPTS))
+            {
+                msg(M_WARN, SCRIPT_SECURITY_WARNING);
+                warn_shown = true;
+            }
+        }
+#elif defined(ENABLE_FEATURE_EXECVE)
         if (openvpn_execve_allowed(flags))
         {
             const char *cmd = a->argv[0];
@@ -174,7 +463,7 @@ openvpn_execve(const struct argv *a, const struct env_set *es, const unsigned in
         }
 #else  /* if defined(ENABLE_FEATURE_EXECVE) */
         msg(M_WARN, "openvpn_execve: execve function not available");
-#endif /* if defined(ENABLE_FEATURE_EXECVE) */
+#endif /* TARGET_AMIGA / ENABLE_FEATURE_EXECVE */
     }
     else
     {
@@ -234,7 +523,7 @@ openvpn_popen(const struct argv *a,  const struct env_set *es)
 
     if (a && a->argv[0])
     {
-#if defined(ENABLE_FEATURE_EXECVE)
+#if defined(ENABLE_FEATURE_EXECVE) && !defined(TARGET_AMIGA)
         static bool warn_shown = false;
         if (script_security() >= SSEC_BUILT_IN)
         {

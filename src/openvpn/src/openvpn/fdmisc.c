@@ -36,7 +36,10 @@
 bool
 set_nonblock_action(socket_descriptor_t fd)
 {
-#ifdef _WIN32
+#ifdef TARGET_AMIGA /* AmiOpenVPN-POC2 */
+    long arg = 1;
+    if (IoctlSocket(fd, FIONBIO, (char *)&arg) != 0) return false;
+#elif defined(_WIN32)
     u_long arg = 1;
     if (ioctlsocket(fd, FIONBIO, &arg))
     {
@@ -55,7 +58,7 @@ set_nonblock_action(socket_descriptor_t fd)
 bool
 set_cloexec_action(socket_descriptor_t fd)
 {
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(TARGET_AMIGA) /* AmiOpenVPN-POC2 */
     if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0)
     {
         return false;

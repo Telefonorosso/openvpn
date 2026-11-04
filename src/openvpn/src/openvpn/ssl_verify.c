@@ -31,6 +31,9 @@
 #endif
 
 #include "syshead.h"
+#ifdef TARGET_AMIGA /* AmiOpenVPN POC2 FIX16 */
+#include "platform.h"
+#endif
 #include <string.h>
 
 #include "base64.h"
@@ -478,7 +481,11 @@ verify_cert_cert_delete_env(struct env_set *es, const char *pem_export_fname)
     env_set_del(es, "peer_cert");
     if (pem_export_fname)
     {
+#ifdef TARGET_AMIGA
+        (void)platform_unlink(pem_export_fname);
+#else
         unlink(pem_export_fname);
+#endif
     }
 }
 

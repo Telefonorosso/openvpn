@@ -39,6 +39,17 @@
 #endif
 
 #include "syshead.h"
+#ifdef TARGET_AMIGA
+/* AmiOpenVPN FIX23 SSL deep trace -- diagnostic only. */
+#include <stdio.h>
+#define AOVPN23_TRACE(text) do { \
+    if (aovpn_diagnostics_enabled()) { \
+        fputs("AOVPN23 " text "\n", stderr); \
+        fflush(stderr); \
+    } \
+} while (0)
+#endif
+
 #include "win32.h"
 
 #include "error.h"
@@ -392,9 +403,27 @@ calc_control_channel_frame_overhead(const struct tls_session *session)
 void
 init_ssl_lib(void)
 {
-    tls_init_lib();
+    #ifdef TARGET_AMIGA
+    AOVPN23_TRACE("S0 init_ssl_lib entered");
+    #endif
 
+    #ifdef TARGET_AMIGA
+    AOVPN23_TRACE("S1 before tls_init_lib");
+    #endif
+    tls_init_lib();
+    #ifdef TARGET_AMIGA
+    AOVPN23_TRACE("S2 after tls_init_lib");
+    #endif
+
+
+    #ifdef TARGET_AMIGA
+    AOVPN23_TRACE("S3 before crypto_init_lib");
+    #endif
     crypto_init_lib();
+    #ifdef TARGET_AMIGA
+    AOVPN23_TRACE("S4 after crypto_init_lib");
+    #endif
+
 }
 
 void
@@ -2170,6 +2199,8 @@ push_peer_info(struct buffer *buf, struct tls_session *session)
             buf_printf(&out, "IV_SSL=%s\n", get_ssl_library_version() );
 #if defined(_WIN32)
             buf_printf(&out, "IV_PLAT_VER=%s\n", win32_version_string(&gc, false));
+#elif defined(TARGET_AMIGA)
+            buf_printf(&out, "IV_PLAT_VER=AmigaOS\n");
 #else
             struct utsname u;
             uname(&u);

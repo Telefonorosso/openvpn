@@ -40,6 +40,12 @@
 
 #include "platform.h"
 
+#ifdef TARGET_AMIGA /* AmiOpenVPN POC2 FIX16 */
+extern int aovpn_amiga_stat(const char *, struct stat *);
+extern int aovpn_amiga_access(const char *, int);
+extern int aovpn_amiga_unlink(const char *);
+#endif
+
 #if _WIN32
 #include <direct.h>
 #endif
@@ -332,7 +338,10 @@ platform_nice(int niceval)
 unsigned int
 platform_getpid(void)
 {
-#ifdef _WIN32
+#ifdef TARGET_AMIGA
+    /* Stable identifier for this task lifetime, not a Unix PID. */
+    return (unsigned int)(unsigned long)FindTask(NULL);
+#elif defined(_WIN32)
     return (unsigned int) GetCurrentProcessId();
 #else
     return (unsigned int) getpid();
@@ -413,14 +422,22 @@ platform_chdir(const char *dir)
 bool
 platform_system_ok(int stat)
 {
-#ifdef _WIN32
+#if defined(TARGET_AMIGA)
+    return stat == 0; /* SystemTagList returns native Shell status. */
+#elif defined(_WIN32)
     return stat == 0;
 #else
     return stat != -1 && WIFEXITED(stat) && WEXITSTATUS(stat) == 0;
 #endif
 }
 
-#ifdef _WIN32
+#ifdef TARGET_AMIGA
+int
+platform_ret_code(int stat)
+{
+    return (stat >= 0 && stat <= 255) ? stat : -1;
+}
+#elif defined(_WIN32)
 int
 platform_ret_code(int stat)
 {
@@ -463,7 +480,11 @@ platform_access(const char *path, int mode)
     gc_free(&gc);
     return ret;
 #else
+#ifdef TARGET_AMIGA
+    return aovpn_amiga_access(path, mode);
+#else
     return access(path, mode);
+#endif
 #endif
 }
 
@@ -506,7 +527,11 @@ platform_unlink(const char *filename)
     gc_free(&gc);
     return (ret != 0);
 #else
+#ifdef TARGET_AMIGA
+    return aovpn_amiga_unlink(filename) == 0;
+#else
     return (unlink(filename) == 0);
+#endif
 #endif
 }
 
@@ -545,7 +570,11 @@ platform_stat(const char *path, platform_stat_t *buf)
     gc_free(&gc);
     return res;
 #else
+#ifdef TARGET_AMIGA
+    return aovpn_amiga_stat(path, buf);
+#else
     return stat(path, buf);
+#endif
 #endif
 }
 

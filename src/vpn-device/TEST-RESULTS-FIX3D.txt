@@ -1,0 +1,33 @@
+mkdir -p build
+cc -std=c99 -Wall -Wextra -Werror -O2 -o build/ring-test tests/ring_test.c
+./build/ring-test
+PASS: bounded FIFO, full, wrap-around, empty, reset
+gcc -std=gnu99 -DVPN_HOST_MODEL=1 '-Dasm(x)=' -Wall -Wextra -Werror \
+  -Wno-unused-parameter -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast \
+  -I tests/mock_ndk -o build/host-device-test tests/host_device_test.c
+./build/host-device-test
+PASS: async unit0->unit1 IPv4 packet
+PASS: write-before-read unit1->unit0 buffering
+PASS: PPP 0x001f write -> legacy 0x0800 read
+PASS: legacy 0x0800 write -> PPP 0x001f read
+PASS: MiamiDX PPP 0x0021 write -> peer 0x0800 read
+PASS: FIX3D MiamiDX 0x0021 READ queued NT_MESSAGE -> delivered NT_REPLYMSG
+PASS: FIX3D control plane preserves FIX2 TRACK/UNTRACK/GETTYPESTATS
+PASS: AbortIO pending read, single reply
+PASS: FIFO capacity 16 / overrun / flush
+PASS: read-only live diagnostics / unit counters / ring rejection
+PASS: FIX3D 15 queued MiamiDX reads, offline replies, reuse transitions
+PASS: close aborts pending requests / peer becomes unavailable
+PASS: actual vpn.device source under host-model Exec API
+python3 tests/verify_reuse.py
+PASS: exact sana2loop helper safe_add_tail
+PASS: exact sana2loop helper safe_rem_head
+PASS: exact sana2loop helper safe_unlink_if_queued
+PASS: exact sana2loop helper default_copy
+PASS: exact sana2loop helper list_init
+PASS: 1:1 function-level reuse integrity
+gcc -std=gnu99 -fsyntax-only '-Dasm(x)=' -Wall -Wextra -Werror \
+  -Wno-unused-parameter -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast \
+  -I tests/mock_ndk src/vpn_device.c tools/vpn_probe.c tools/aovpn_diag.c
+
+Host-validation only; m68k compiler and hardware not available in packaging environment.

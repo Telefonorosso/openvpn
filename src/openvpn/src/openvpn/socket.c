@@ -41,6 +41,228 @@
 #include "forward.h"
 
 #include "memdbg.h"
+#ifdef TARGET_AMIGA
+/* POC3 TRACE3: diagnostics only, isolated from socket operations. */
+#define AOVPN3_TRACE(s) do { \
+    if (aovpn_diagnostics_enabled()) { \
+        fputs("AOVPN3 " s "\n", stderr); fflush(stderr); \
+    } \
+} while (0)
+#endif
+
+#ifdef TARGET_AMIGA
+/*
+ * POC5 DNS FIX1: preserve POC3 FIX4 numeric IPv4 handling, then use
+ * bsdsocket.library gethostbyname() only for genuine hostname lookups.
+ *
+ * This avoids the Amiga C runtime getaddrinfo() path (Guru 80000004).
+ * gethostbyname() uses the DNS configuration of the active TCP/IP stack.
+ * OpenVPN owns every returned addrinfo/sockaddr allocation as before.
+ * This intentionally remains an IPv4-only compatibility shim.
+ */
+#define AOVPN_AMIGA_MAX_DNS_IPV4 16U
+
+static int
+aovpn_amiga_parse_ipv4(const char *text, uint32_t *network_address)
+{
+    const char *p = text;
+    unsigned int octet[4];
+    int i;
+
+    if (!text || !network_address)
+    {
+        return 0;
+    }
+    for (i = 0; i < 4; ++i)
+    {
+        unsigned int v = 0;
+        int digits = 0;
+        while (*p >= '0' && *p <= '9')
+        {
+            v = 10U * v + (unsigned int)(*p++ - '0');
+            ++digits;
+            if (digits > 3 || v > 255U)
+            {
+                return 0;
+            }
+        }
+        if (!digits)
+        {
+            return 0;
+        }
+        octet[i] = v;
+        if (i != 3)
+        {
+            if (*p++ != '.')
+            {
+                return 0;
+            }
+        }
+        else if (*p != '\0')
+        {
+            return 0;
+        }
+    }
+    *network_address = htonl(((uint32_t)octet[0] << 24)
+                             | ((uint32_t)octet[1] << 16)
+                             | ((uint32_t)octet[2] << 8)
+                             | (uint32_t)octet[3]);
+    return 1;
+}
+
+int
+aovpn_amiga_getaddrinfo(const char *hostname, const char *servname,
+                          const struct addrinfo *hints, struct addrinfo **res)
+{
+    /* Store DNS results immediately: gethostbyname() returns library-owned
+     * storage which may be overwritten by subsequent bsdsocket calls. */
+    uint32_t addresses[AOVPN_AMIGA_MAX_DNS_IPV4];
+    unsigned int count = 0;
+    unsigned int port = 0;
+    unsigned int i;
+    int resolved_dns = 0;
+    const char *p;
+    struct addrinfo *head = NULL;
+    struct addrinfo **tail = &head;
+
+    if (!res)
+    {
+        return EAI_FAIL;
+    }
+    *res = NULL;
+
+    if (hints && hints->ai_family != AF_INET && hints->ai_family != AF_UNSPEC)
+    {
+        return EAI_FAMILY;
+    }
+    if (!hostname && !servname)
+    {
+        return EAI_NONAME;
+    }
+
+    /* Match POC3 FIX4 port semantics; no service-name resolution. */
+    if (servname)
+    {
+        p = servname;
+        if (!*p)
+        {
+            return EAI_SERVICE;
+        }
+        while (*p)
+        {
+            if (*p < '0' || *p > '9')
+            {
+                return EAI_SERVICE;
+            }
+            port = port * 10U + (unsigned int)(*p++ - '0');
+            if (port > 65535U)
+            {
+                return EAI_SERVICE;
+            }
+        }
+    }
+
+    if (!hostname)
+    {
+        /* Same behavior as POC3 FIX4: loopback, or ANY for AI_PASSIVE. */
+        addresses[0] = (!hints || !(hints->ai_flags & AI_PASSIVE))
+                       ? htonl(0x7f000001UL) : htonl(0UL);
+        count = 1;
+    }
+    else if (aovpn_amiga_parse_ipv4(hostname, &addresses[0]))
+    {
+        /* Unchanged numeric IPv4 fast path; no DNS library call. */
+        count = 1;
+    }
+    else
+    {
+        struct hostent *he;
+        if (hints && (hints->ai_flags & AI_NUMERICHOST))
+        {
+            return EAI_NONAME;
+        }
+        if (SocketBase == NULL)
+        {
+            return EAI_FAIL;
+        }
+
+        /* Direct AmigaOS bsdsocket.library call, not libc getaddrinfo().
+         * Calls on the single OpenVPN task are serialized. */
+        he = gethostbyname((STRPTR)hostname);
+        if (!he || he->h_addrtype != AF_INET
+            || he->h_length != (int)sizeof(struct in_addr)
+            || !he->h_addr_list)
+        {
+            return EAI_NONAME;
+        }
+        while (count < AOVPN_AMIGA_MAX_DNS_IPV4
+               && he->h_addr_list[count] != NULL)
+        {
+            memcpy(&addresses[count], he->h_addr_list[count],
+                   sizeof(addresses[count]));
+            ++count;
+        }
+        if (!count)
+        {
+            return EAI_NONAME;
+        }
+        resolved_dns = 1;
+    }
+
+    for (i = 0; i < count; ++i)
+    {
+        struct addrinfo *ai = (struct addrinfo *)calloc(1, sizeof(*ai));
+        struct sockaddr_in *sin;
+        if (!ai)
+        {
+            aovpn_amiga_freeaddrinfo(head);
+            return EAI_MEMORY;
+        }
+        sin = (struct sockaddr_in *)calloc(1, sizeof(*sin));
+        if (!sin)
+        {
+            free(ai);
+            aovpn_amiga_freeaddrinfo(head);
+            return EAI_MEMORY;
+        }
+        sin->sin_family = AF_INET;
+        sin->sin_port = htons((unsigned short)port);
+        sin->sin_addr.s_addr = addresses[i];
+        ai->ai_family = AF_INET;
+        ai->ai_socktype = hints ? hints->ai_socktype : 0;
+        ai->ai_protocol = hints ? hints->ai_protocol : 0;
+        ai->ai_flags = hints ? hints->ai_flags : 0;
+        ai->ai_addrlen = sizeof(*sin);
+        ai->ai_addr = (struct sockaddr *)sin;
+        *tail = ai;
+        tail = &ai->ai_next;
+    }
+    *res = head;
+    if (resolved_dns)
+    {
+        AOVPN3_TRACE("V02 DNS IPv4 addrinfo built");
+    }
+    else
+    {
+        AOVPN3_TRACE("V00 numeric IPv4 addrinfo built");
+    }
+    return 0;
+}
+
+void
+aovpn_amiga_freeaddrinfo(struct addrinfo *res)
+{
+    while (res)
+    {
+        struct addrinfo *next = res->ai_next;
+        free(res->ai_addr);
+        free(res->ai_canonname);
+        free(res);
+        res = next;
+    }
+}
+#endif /* TARGET_AMIGA */
+
 
 /*
  * Convert sockflags/getaddr_flags into getaddr_flags
@@ -445,6 +667,9 @@ openvpn_getaddrinfo(unsigned int flags,
     const char *print_hostname;
     const char *print_servname;
 
+#ifdef TARGET_AMIGA
+    AOVPN3_TRACE("G00 entered openvpn_getaddrinfo");
+#endif
     ASSERT(res);
 
     ASSERT(hostname || servname);
@@ -489,7 +714,13 @@ openvpn_getaddrinfo(unsigned int flags,
         hints.ai_socktype = SOCK_STREAM;
     }
 
+#ifdef TARGET_AMIGA
+    AOVPN3_TRACE("G01 before numeric getaddrinfo");
+#endif
     status = getaddrinfo(hostname, servname, &hints, res);
+#ifdef TARGET_AMIGA
+    AOVPN3_TRACE("G02 after numeric getaddrinfo");
+#endif
 
     if (status != 0) /* parse as numeric address failed? */
     {
@@ -551,7 +782,7 @@ openvpn_getaddrinfo(unsigned int flags,
          */
         while (true)
         {
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(TARGET_AMIGA) /* AmiOpenVPN FIX14 */
             /* force resolv.conf reload */
             res_init();
 #endif
@@ -560,7 +791,13 @@ openvpn_getaddrinfo(unsigned int flags,
             dmsg(D_SOCKET_DEBUG,
                  "GETADDRINFO flags=0x%04x ai_family=%d ai_socktype=%d",
                  flags, hints.ai_family, hints.ai_socktype);
+#ifdef TARGET_AMIGA
+            AOVPN3_TRACE("G03 before fallback getaddrinfo");
+#endif
             status = getaddrinfo(hostname, servname, &hints, res);
+#ifdef TARGET_AMIGA
+            AOVPN3_TRACE("G04 after fallback getaddrinfo");
+#endif
 
             if (sig_info)
             {
@@ -1415,6 +1652,8 @@ socket_bind(socket_descriptor_t sd,
             prefix, addr_family_name(ai_family));
     }
 
+    /* AmiOpenVPN POC2 FIX11: reject unsupported IPv6 socket binding. */
+#ifndef TARGET_AMIGA
     if (ai_family == AF_INET6)
     {
         int v6only = ipv6only ? 1 : 0;  /* setsockopt must have an "int" */
@@ -1425,6 +1664,15 @@ socket_bind(socket_descriptor_t sd,
             msg(M_NONFATAL|M_ERRNO, "Setting IPV6_V6ONLY=%d failed", v6only);
         }
     }
+#else
+    (void)ipv6only;
+    if (ai_family == AF_INET6)
+    {
+        gc_free(&gc);
+        msg(M_FATAL, "AmiOpenVPN: IPv6 socket transport is unsupported");
+        return;
+    }
+#endif
     if (bind(sd, cur->ai_addr, cur->ai_addrlen))
     {
         msg(M_FATAL | M_ERRNO, "%s: Socket bind failed on local address %s",
@@ -1705,6 +1953,9 @@ resolve_remote(struct link_socket *sock,
 {
     volatile int *signal_received = sig_info ? &sig_info->signal_received : NULL;
     struct gc_arena gc = gc_new();
+#ifdef TARGET_AMIGA
+    AOVPN3_TRACE("R00 entered resolve_remote");
+#endif
 
     /* resolve remote address if undefined */
     if (!sock->info.lsa->remote_list)
@@ -1758,17 +2009,32 @@ resolve_remote(struct link_socket *sock,
             }
 
 
+#ifdef TARGET_AMIGA
+            AOVPN3_TRACE("R01 before get_cached_dns_entry");
+#endif
             status = get_cached_dns_entry(sock->dns_cache,
                                           sock->remote_host,
                                           sock->remote_port,
                                           sock->info.af,
                                           flags, &ai);
+#ifdef TARGET_AMIGA
+            AOVPN3_TRACE("R02 after get_cached_dns_entry");
+#endif
             if (status)
             {
+#ifdef TARGET_AMIGA
+                AOVPN3_TRACE("R03 before openvpn_getaddrinfo");
+#endif
                 status = openvpn_getaddrinfo(flags, sock->remote_host, sock->remote_port,
                                              retry, sig_info, sock->info.af, &ai);
+#ifdef TARGET_AMIGA
+                AOVPN3_TRACE("R04 after openvpn_getaddrinfo");
+#endif
             }
 
+#ifdef TARGET_AMIGA
+            AOVPN3_TRACE("R05 resolution result returned");
+#endif
             if (status == 0)
             {
                 sock->info.lsa->remote_list = ai;
@@ -1799,10 +2065,19 @@ resolve_remote(struct link_socket *sock,
     }
 
     /* should we re-use previous active remote address? */
+#ifdef TARGET_AMIGA
+    AOVPN3_TRACE("R09 before address-preservation check");
+#endif
     if (link_socket_actual_defined(&sock->info.lsa->actual))
     {
+#ifdef TARGET_AMIGA
+        AOVPN3_TRACE("R10 before formatting preserved remote address");
+#endif
         msg(M_INFO, "TCP/UDP: Preserving recently used remote address: %s",
             print_link_socket_actual(&sock->info.lsa->actual, &gc));
+#ifdef TARGET_AMIGA
+        AOVPN3_TRACE("R11 preserved address formatted");
+#endif
         if (remote_dynamic)
         {
             *remote_dynamic = NULL;
@@ -1813,12 +2088,21 @@ resolve_remote(struct link_socket *sock,
         CLEAR(sock->info.lsa->actual);
         if (sock->info.lsa->current_remote)
         {
+#ifdef TARGET_AMIGA
+            AOVPN3_TRACE("R06 before set_actual_address");
+#endif
             set_actual_address(&sock->info.lsa->actual,
                                sock->info.lsa->current_remote);
+#ifdef TARGET_AMIGA
+            AOVPN3_TRACE("R07 after set_actual_address");
+#endif
         }
     }
 
 done:
+#ifdef TARGET_AMIGA
+    AOVPN3_TRACE("R08 resolve_remote done");
+#endif
     gc_free(&gc);
 }
 
@@ -1841,6 +2125,9 @@ link_socket_init_phase1(struct context *c, int mode)
     struct link_socket *sock = c->c2.link_socket;
     struct options *o = &c->options;
     ASSERT(sock);
+#ifdef TARGET_AMIGA
+    AOVPN3_TRACE("S00 entered link_socket_init_phase1");
+#endif
 
     const char *remote_host = o->ce.remote;
     const char *remote_port = o->ce.remote_port;
@@ -1937,12 +2224,24 @@ link_socket_init_phase1(struct context *c, int mode)
 
     if (mode != LS_MODE_TCP_ACCEPT_FROM)
     {
+#ifdef TARGET_AMIGA
+        AOVPN3_TRACE("S01 before optional resolve_bind_local");
+#endif
         if (sock->bind_local)
         {
             resolve_bind_local(sock, sock->info.af);
         }
+#ifdef TARGET_AMIGA
+        AOVPN3_TRACE("S02 before resolve_remote");
+#endif
         resolve_remote(sock, 1, NULL, NULL);
+#ifdef TARGET_AMIGA
+        AOVPN3_TRACE("S03 after resolve_remote");
+#endif
     }
+#ifdef TARGET_AMIGA
+    AOVPN3_TRACE("S04 phase1 complete");
+#endif
 }
 
 static void
@@ -2790,8 +3089,29 @@ print_sockaddr_ex(const struct sockaddr *sa,
             ASSERT(0);
     }
 
-    status = getnameinfo(sa, salen, hostaddr, sizeof(hostaddr),
-                         servname, sizeof(servname), NI_NUMERICHOST | NI_NUMERICSERV);
+#ifdef TARGET_AMIGA
+    /*
+     * POC3 FIX5: MiamiDX's libc getnameinfo() is not yet validated.
+     * For numeric IPv4, format the already resolved address directly.
+     * This affects diagnostics only; it does not change socket addresses.
+     */
+    if (sa->sa_family == AF_INET)
+    {
+        const struct sockaddr_in *v4 = (const struct sockaddr_in *)sa;
+        const unsigned char *octets = (const unsigned char *)&v4->sin_addr.s_addr;
+        snprintf(hostaddr, sizeof(hostaddr), "%u.%u.%u.%u",
+                 (unsigned)octets[0], (unsigned)octets[1],
+                 (unsigned)octets[2], (unsigned)octets[3]);
+        snprintf(servname, sizeof(servname), "%u", (unsigned)ntohs(v4->sin_port));
+        status = 0;
+        AOVPN3_TRACE("V01 numeric IPv4 printed without getnameinfo");
+    }
+    else
+#endif
+    {
+        status = getnameinfo(sa, salen, hostaddr, sizeof(hostaddr),
+                             servname, sizeof(servname), NI_NUMERICHOST | NI_NUMERICSERV);
+    }
 
     if (status!=0)
     {
@@ -2931,7 +3251,12 @@ print_in6_addr(struct in6_addr a6, unsigned int flags, struct gc_arena *gc)
     struct buffer out = alloc_buf_gc(64, gc);
     char tmp_out_buf[64];       /* inet_ntop wants pointer to buffer */
 
+    /* AmiOpenVPN POC2 FIX11: avoid missing in6addr_any symbol. */
+#ifdef TARGET_AMIGA
+    if (!IN6_IS_ADDR_UNSPECIFIED(&a6)
+#else
     if (memcmp(&a6, &in6addr_any, sizeof(a6)) != 0
+#endif
         || !(flags & IA_EMPTY_IF_UNDEF))
     {
         inet_ntop(AF_INET6, &a6, tmp_out_buf, sizeof(tmp_out_buf)-1);

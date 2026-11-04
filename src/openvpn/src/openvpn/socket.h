@@ -309,6 +309,11 @@ SocketHandleSetInvalError(sockethandle_t sh)
 
 #endif /* ifdef _WIN32 */
 
+#ifdef TARGET_AMIGA /* AmiOpenVPN-POC2 */
+#undef openvpn_close_socket
+#define openvpn_close_socket(s) CloseSocket(s)
+#endif
+
 struct link_socket *link_socket_new(void);
 
 void socket_bind(socket_descriptor_t sd,

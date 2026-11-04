@@ -31,6 +31,17 @@
 #endif
 
 #include "syshead.h"
+#ifdef TARGET_AMIGA
+/* AmiOpenVPN FIX23 SSL deep trace -- diagnostic only. */
+#include <stdio.h>
+#define AOVPN23_TRACE(text) do { \
+    if (aovpn_diagnostics_enabled()) { \
+        fputs("AOVPN23 " text "\n", stderr); \
+        fflush(stderr); \
+    } \
+} while (0)
+#endif
+
 
 #if defined(ENABLE_CRYPTO_OPENSSL)
 
@@ -192,10 +203,28 @@ crypto_unload_provider(const char *provname, provider_t *provider)
 void
 crypto_init_lib(void)
 {
+    #ifdef TARGET_AMIGA
+    AOVPN23_TRACE("C0 crypto_init_lib entered");
+    #endif
+
 #if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+    #ifdef TARGET_AMIGA
+    AOVPN23_TRACE("C1 before OPENSSL_init_crypto");
+    #endif
     OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CONFIG, NULL);
+    #ifdef TARGET_AMIGA
+    AOVPN23_TRACE("C2 after OPENSSL_init_crypto");
+    #endif
+
 #else
+    #ifdef TARGET_AMIGA
+    AOVPN23_TRACE("C1 before legacy OPENSSL_config");
+    #endif
     OPENSSL_config(NULL);
+    #ifdef TARGET_AMIGA
+    AOVPN23_TRACE("C2 after legacy OPENSSL_config");
+    #endif
+
 #endif
     /*
      * If you build the OpenSSL library and OpenVPN with

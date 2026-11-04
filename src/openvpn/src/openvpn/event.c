@@ -50,7 +50,7 @@
 /*
  * All non-windows OSes are assumed to have select()
  */
-#ifdef _WIN32
+#if defined(_WIN32) || defined(TARGET_AMIGA) /* AmiOpenVPN-POC2 */
 #define SELECT 0
 #else
 #define SELECT 1
@@ -1121,11 +1121,16 @@ se_init(int *maxevents, unsigned int flags)
 }
 #endif /* SELECT */
 
+#ifdef TARGET_AMIGA /* AmiOpenVPN-POC2 */
+#include "amiga_event_backend.inc"
+#endif
 static struct event_set *
 event_set_init_simple(int *maxevents, unsigned int flags)
 {
     struct event_set *ret = NULL;
-#ifdef _WIN32
+#ifdef TARGET_AMIGA /* AmiOpenVPN-POC2 */
+    ret = ae_init(maxevents, flags);
+#elif defined(_WIN32)
     ret = we_init(maxevents, flags);
 #elif POLL && SELECT
 #if 0 /* Define to 1 if EVENT_METHOD_US_TIMEOUT should cause select to be favored over poll */

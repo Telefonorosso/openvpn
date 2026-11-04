@@ -773,6 +773,13 @@ openvpn_exit(const int status)
         }
     }
 
+#ifdef TARGET_AMIGA
+    /* POC4 FIX1 / FIX28 restoration: do not rely on atexit for Exec
+     * MsgPort signals; shutdown is safe even on --version/early exit.
+     * This runs after OpenVPN's own tun_abort, pid and logging cleanup.
+     */
+    aovpn_amiga_shutdown();
+#endif
     exit(status);
 }
 

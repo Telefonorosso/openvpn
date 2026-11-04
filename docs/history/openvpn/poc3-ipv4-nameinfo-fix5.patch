@@ -1,0 +1,54 @@
+--- a/src/openvpn/socket.c
++++ b/src/openvpn/socket.c
+@@ -1990,10 +1990,19 @@
+     }
+ 
+     /* should we re-use previous active remote address? */
++#ifdef TARGET_AMIGA
++    AOVPN3_TRACE("R09 before address-preservation check");
++#endif
+     if (link_socket_actual_defined(&sock->info.lsa->actual))
+     {
++#ifdef TARGET_AMIGA
++        AOVPN3_TRACE("R10 before formatting preserved remote address");
++#endif
+         msg(M_INFO, "TCP/UDP: Preserving recently used remote address: %s",
+             print_link_socket_actual(&sock->info.lsa->actual, &gc));
++#ifdef TARGET_AMIGA
++        AOVPN3_TRACE("R11 preserved address formatted");
++#endif
+         if (remote_dynamic)
+         {
+             *remote_dynamic = NULL;
+@@ -3005,8 +3014,29 @@
+             ASSERT(0);
+     }
+ 
+-    status = getnameinfo(sa, salen, hostaddr, sizeof(hostaddr),
+-                         servname, sizeof(servname), NI_NUMERICHOST | NI_NUMERICSERV);
++#ifdef TARGET_AMIGA
++    /*
++     * POC3 FIX5: MiamiDX's libc getnameinfo() is not yet validated.
++     * For numeric IPv4, format the already resolved address directly.
++     * This affects diagnostics only; it does not change socket addresses.
++     */
++    if (sa->sa_family == AF_INET)
++    {
++        const struct sockaddr_in *v4 = (const struct sockaddr_in *)sa;
++        const unsigned char *octets = (const unsigned char *)&v4->sin_addr.s_addr;
++        snprintf(hostaddr, sizeof(hostaddr), "%u.%u.%u.%u",
++                 (unsigned)octets[0], (unsigned)octets[1],
++                 (unsigned)octets[2], (unsigned)octets[3]);
++        snprintf(servname, sizeof(servname), "%u", (unsigned)ntohs(v4->sin_port));
++        status = 0;
++        AOVPN3_TRACE("V01 numeric IPv4 printed without getnameinfo");
++    }
++    else
++#endif
++    {
++        status = getnameinfo(sa, salen, hostaddr, sizeof(hostaddr),
++                             servname, sizeof(servname), NI_NUMERICHOST | NI_NUMERICSERV);
++    }
+ 
+     if (status!=0)
+     {

@@ -232,7 +232,7 @@ signal_restart_status(const struct signal_info *si)
 #endif /* ifdef ENABLE_MANAGEMENT */
 }
 
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(TARGET_AMIGA) /* AmiOpenVPN FIX14 */
 /* normal signal handler, when we are in event loop */
 static void
 signal_handler(const int signum)
@@ -253,7 +253,7 @@ static int signal_mode; /* GLOBAL */
 void
 pre_init_signal_catch(void)
 {
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(TARGET_AMIGA) /* AmiOpenVPN FIX14 */
     signal_mode = SM_PRE_INIT;
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
@@ -267,7 +267,7 @@ pre_init_signal_catch(void)
 void
 post_init_signal_catch(void)
 {
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(TARGET_AMIGA) /* AmiOpenVPN FIX14 */
     signal_mode = SM_POST_INIT;
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);

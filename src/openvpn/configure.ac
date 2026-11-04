@@ -324,6 +324,12 @@ fi
 AC_DEFINE_UNQUOTED([TARGET_ALIAS], ["${host}"], [A string representing our host])
 AM_CONDITIONAL([TARGET_LINUX], [false])
 case "$host" in
+	*-*-amigaos*|*-amigaos*) # AmiOpenVPN-POC2
+		AC_DEFINE([TARGET_AMIGA], [1], [Are we running on classic AmigaOS?])
+		AC_DEFINE_UNQUOTED([TARGET_PREFIX], ["A"], [Target prefix])
+		CPPFLAGS="${CPPFLAGS} -D__NO_NET_API=1"
+		have_tap_header="yes" # Native SANA-II backend, no Unix tun.h
+		;;
 	*-*-linux*)
 		AC_DEFINE([TARGET_LINUX], [1], [Are we running on Linux?])
 		AM_CONDITIONAL([TARGET_LINUX], [true])
@@ -665,6 +671,33 @@ AC_CHECK_DECLS(
 
 AC_FUNC_FORK
 
+dnl AmiOpenVPN-POC2-FIX5: native system clock or bundled timer.device implementation.
+dnl The SDK's gettimeofday signature is (struct timeval *, struct timezone *).
+dnl On newlib where the symbol is not linkable, our libcompat.a supplies
+dnl a microsecond-field accurate timer.device implementation; the generated
+dnl HAVE_GETTIMEOFDAY disables upstream's one-second compatibility fallback.
+case "$host" in
+  *-amigaos*)
+    AC_MSG_CHECKING([whether AmigaOS gettimeofday is supplied by the C runtime])
+    AC_LINK_IFELSE(
+      [AC_LANG_PROGRAM(
+        [[#include <sys/time.h>
+          #include <stddef.h>]],
+        [[struct timeval tv;
+          return gettimeofday(&tv, NULL);]]
+      )],
+      [ac_cv_func_gettimeofday=yes
+       AC_MSG_RESULT([yes])],
+      [ac_cv_func_gettimeofday=yes
+       AC_MSG_RESULT([no; bundled timer.device implementation enabled])
+       AC_DEFINE([HAVE_GETTIMEOFDAY], [1],
+         [AmigaOS supplies gettimeofday from libc or bundled libcompat])
+       AC_DEFINE([AOVPN_BUNDLED_GETTIMEOFDAY], [1],
+         [Build bundled AmigaOS timer.device gettimeofday implementation])]
+    )
+    ;;
+esac
+
 AC_CHECK_FUNCS([ \
 	daemon chroot getpwnam setuid nice system dup dup2 \
 	syslog openlog mlockall getrlimit getgrnam setgid \
@@ -923,10 +956,40 @@ if test "${with_crypto_library}" = "openssl"; then
 		)
 	fi
 
+dnl AmiOpenVPN-POC2-FIX3: AmiSSL entrypoints are inline Amiga library calls.
+    case "$host" in
+      *-amigaos*)
+        AC_MSG_CHECKING([whether AmiSSL TLS and AES-GCM calls compile and link])
+        AC_LINK_IFELSE(
+          [AC_LANG_PROGRAM(
+            [[#include <proto/amissl.h>
+              /* AOVPN25: bases for configure-time SDK-only link probe.
+               * Real definitions belong to amiga_platform.c. */
+              struct Library *AmiSSLBase = 0;
+              struct Library *AmiSSLExtBase = 0;
+              struct Library *SocketBase = 0;
+            ]],
+            [[
+              const SSL_METHOD *method = TLS_method();
+              SSL_CTX *ctx = SSL_CTX_new(method);
+              const EVP_CIPHER *cipher = EVP_aes_256_gcm();
+              if (ctx != 0) SSL_CTX_free(ctx);
+              return (method != 0 && cipher != 0) ? 0 : 1;
+            ]]
+          )],
+          [AC_MSG_RESULT([yes])
+           AC_DEFINE([HAVE_SSL_CTX_NEW], [1], [AmiSSL TLS API is linkable])
+           AC_DEFINE([HAVE_EVP_AES_256_GCM], [1], [AmiSSL AES-GCM API is linkable])],
+          [AC_MSG_ERROR([AmiSSL TLS/AES-GCM compile-link check failed; inspect config.log])]
+        )
+        ;;
+      *)
 	AC_CHECK_FUNCS([SSL_CTX_new],
 				   ,
 				   [AC_MSG_ERROR([openssl check failed])]
 	)
+        ;;
+    esac
 
 	if test "${with_openssl_engine}" = "auto"; then
 	    AC_COMPILE_IFELSE(
@@ -977,11 +1040,18 @@ if test "${with_crypto_library}" = "openssl"; then
 		AC_DEFINE([HAVE_OPENSSL_ENGINE], [1], [OpenSSL engine support available])
 	fi
 
+case "$host" in
+      *-amigaos*)
+        dnl AmiOpenVPN-POC2-FIX3: already checked above in AC_LINK_IFELSE.
+        ;;
+      *)
 	AC_CHECK_FUNC(
 		[EVP_aes_256_gcm],
 		,
 		[AC_MSG_ERROR([OpenSSL check for AES-256-GCM support failed])]
 	)
+        ;;
+    esac
 
 	# All supported OpenSSL version (>= 1.0.2)
 	# have this feature
