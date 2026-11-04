@@ -5,11 +5,16 @@
  */
 #include <exec/types.h>
 #include <exec/io.h>
+#include <exec/errors.h>
 #include <exec/memory.h>
 #include <devices/sana2.h>
 #include <utility/tagitem.h>
 #include <proto/exec.h>
 #include <stdio.h>
+
+#ifndef AOVPN_PROBE_DEVICE
+#define AOVPN_PROBE_DEVICE "vpn.device"
+#endif
 
 struct Channel {
     struct MsgPort *port;
@@ -37,7 +42,7 @@ static BOOL start_channel(struct Channel *ch, ULONG unit)
     ch->tags[2].ti_Tag = TAG_DONE;
     ch->tags[2].ti_Data = 0;
     ch->io->ios2_BufferManagement = ch->tags;
-    if (OpenDevice((STRPTR)"vpn.device", unit, (struct IORequest *)ch->io, 0)) {
+    if (OpenDevice((STRPTR)AOVPN_PROBE_DEVICE, unit, (struct IORequest *)ch->io, 0)) {
         ch->io->ios2_Req.io_Device = NULL;
         return FALSE;
     }

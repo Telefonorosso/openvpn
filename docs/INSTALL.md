@@ -1,7 +1,7 @@
 # File locations after the repository reorganization
 
-This change reorganizes the source repository. It does not install software or
-change the contents of the existing client, driver or lifecycle scripts.
+The source repository layout is separate from the Amiga installation layout.
+Neither building nor extracting a package installs anything onto an Amiga.
 
 | Repository file | Amiga location / use |
 | --- | --- |
@@ -24,4 +24,15 @@ Review the existing `vpn.startup` before using it on a configured machine.
 The original root README's requirements, configuration and run instructions
 remain applicable. These are historical BETA2 binaries, not newly verified
 builds of the reorganized source. See `prebuilt/beta2/README.md` and
-`docs/REPOSITORY.md` for provenance and the next build/release steps.
+`docs/REPOSITORY.md` for provenance; use `docs/BUILD.md` for current build commands.
+
+## Newly built CMake packages
+
+`bin/` contains the rebuilt client/DNS helpers and the historical RequestString
+utility; `Devs/vpn.device` is freshly built. Copy these to the corresponding
+Amiga locations above. Select **one** integration under `stacks/` and preserve
+its original filenames and assigns. `examples/` contains templates; `docs/`
+contains notices, version and changelog. There is no automatic installer and no
+runtime AmiSSL library in the package: install the supported AmiSSL v5 runtime
+separately. Back up working configuration before changing a live installation.
+A package and passing smoke tests alone do not verify full VPN interoperability.

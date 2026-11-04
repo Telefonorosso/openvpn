@@ -33,19 +33,22 @@ in that archive rather than presented beside the active implementations.
 Historical standalone patches/notes are retained in `docs/history/openvpn/`;
 they have already been applied where applicable and are not build steps.
 
-The source import contains generated Autotools files from the release bundle.
-Retaining those makes this first change structural. A later build-tool commit
-can define regeneration and the pinned GCC/NDK/AmiSSL SDK inputs explicitly.
+The source import retains generated Autotools files from the release bundle.
+The root CMake build compiles the active sources directly without regenerating
+those files. See `docs/BUILD.md` for pinned dependencies and runnable commands,
+and `AGENTS.md` for development, validation and release rules.
 
 ## Builds, releases and validation
 
-Next steps are a documented cross-build entry point, pinned build dependencies,
-then CI-produced archives and release checksums. Tag builds should produce one
-shared client/driver plus the selected stack integration files. Existing binary
-downloads stay available in `prebuilt/beta2/` during that transition.
+CI runs Linux/macOS host regressions, an AmigaPorts GCC cross-build and bounded
+Copperline/AROS guest FIFO and SANA-II smoke tests. Packages contain one rebuilt
+shared client/driver, DNS helpers and all stack integrations, plus the unchanged
+historical RequestString utility. `prebuilt/beta2/` remains historical evidence.
+The initial import/layout commits preserve active source bytes. The later build
+commit additionally carries the existing GCC 16 errno-pointer compatibility
+fix and a configurable diagnostic device path; it is not purely structural.
 
-This reorganization does not claim a new binary build, emulator pass or hardware
-pass. Existing upstream/driver test sources were retained unchanged; no new
-harness or benchmark was added. IPv6 support and the existing GCC 16 build
-adjustments remain separate proposed changes, so they can be reviewed on their
-own merits.
+The new smoke tests are not full VPN interoperability evidence. Existing README
+stack validation claims describe the previous port, not automatic validation of
+every newly built artifact. Separate IPv6 proposals remain outside this change.
+`VERSION` identifies the Amiga revision; `CHANGELOG.md` records unreleased work.

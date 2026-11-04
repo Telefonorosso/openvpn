@@ -25,15 +25,16 @@ docs/              upstream workflow, provenance and historical port notes
 ```
 
 See [the repository guide](docs/REPOSITORY.md), [upstream update workflow](docs/UPSTREAM.md)
+[build and CI commands](docs/BUILD.md), [agent guidance](AGENTS.md)
 and [installation file locations](docs/INSTALL.md). Existing binary provenance
 is recorded [beside the retained binaries](prebuilt/beta2/README.md).
 The repository layout is not the Amiga installation layout: follow the stack's
 installation instructions when copying files to `OPENVPN:` and `DEVS:`.
 
-The `prebuilt/beta2` files retain the existing beta release while reproducible
-builds and GitHub Releases are prepared. They are not newly rebuilt from this
-commit. The separate proposed IPv6 changes have not been mixed into this
-structural change.
+The `prebuilt/beta2` files retain the existing beta release; new CMake/CI
+artifacts are produced separately with pinned toolchain inputs and checksums.
+See `VERSION` and [the changelog](CHANGELOG.md) for the unreleased port revision.
+The separate proposed IPv6 changes are not included in this change.
 
 ## Requirements
 

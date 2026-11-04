@@ -181,7 +181,8 @@ int aovpn_socket_init(void)
         AOVPN_MARK("S2 existing SocketBase");
     }
     AOVPN_MARK("S8 before SetErrnoPtr");
-    SetErrnoPtr((APTR)&errno, sizeof(errno));
+    /* Same call as SetErrnoPtr(); GCC 16 rejects that inline macro. */
+    SocketBaseTags(SBTM_SETVAL(SBTC_ERRNOPTR(sizeof(errno))), (ULONG)&errno, TAG_END);
     AOVPN_MARK("S9 after SetErrnoPtr");
     return 1;
 }

@@ -1,0 +1,24 @@
+{
+  "gcc": {
+    "version": "v16.2-rc23",
+    "Linux-x86_64": {
+      "url": "https://github.com/AmigaPorts/m68k-amigaos-gcc/releases/download/v16.2-rc23/m68k-amigaos-gcc-16.2-rc23-x86_64-linux.tar.xz",
+      "sha256": "946ce54a18637fea936be24c8fbbb630ebaa938b89c9544a2ba883a1b3770d6f"
+    },
+    "Darwin-arm64": {
+      "url": "https://github.com/AmigaPorts/m68k-amigaos-gcc/releases/download/v16.2-rc23/m68k-amigaos-gcc-16.2-rc23-arm64-darwin.tar.xz",
+      "sha256": "c5ff60632193bb5c95776f0343dfbec5b0779118f41f7df2917840f6b41dfd21"
+    }
+  },
+  "amissl": {
+    "version": "5.27",
+    "url": "https://github.com/jens-maus/amissl/releases/download/5.27/AmiSSL-5.27-SDK.lha",
+    "sha256": "5003bef8c5930354d16b0ce7196d71b2811891c42fad38a9238c5ce4098ad42a"
+  },
+  "copperline": {
+    "repository": "https://github.com/tinic/Copperline.git",
+    "commit": "640ec785072f97370ea3d89ca067b0a0a2a84b39",
+    "rust": "1.99.0",
+    "features": "frontend"
+  }
+}
