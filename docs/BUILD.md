@@ -1,5 +1,37 @@
 # Build and CI
 
+## One-command build
+
+Install Python 3.12+, CMake 3.24+ (with CTest and CPack), a native C compiler/build
+tool and an LHA reader (`lhasa` on Linux; Homebrew `lha` on macOS). Current pinned
+cross-build assets support Linux x86_64 and macOS Apple Silicon. For Windows or
+Intel Mac, use the hosted Linux workflow described in [MAINTAINER.md](../MAINTAINER.md).
+Then run from the source repository:
+
+```sh
+python3 tools/build.py
+```
+
+The helper runs the existing host regressions, fetches/verifies pinned inputs,
+resolves compiler/SDK paths, builds Amiga targets, runs the existing volamos FIFO
+memory check and creates checked packages. It does not install onto an Amiga,
+create tags or publish. `--host-only` and `--cross-only` are the CI entrypoints;
+`--jobs N` controls parallel compilation. Outputs are under `build/`.
+
+`build/packages/SOURCE_COMMIT` is a clean checkout's full commit. Dirty builds
+are marked `COMMIT+dirty`; archives are marked `UNVERIFIED-SOURCE-ARCHIVE`.
+`source-provenance.json` records that distinction. A parent repository's Git
+identity is never substituted. Use current-version archives in `SHA256SUMS`;
+older local package files are preserved, not silently deleted. CI candidates
+come from fresh checkout jobs. See [the release procedure](RELEASING.md).
+
+`--require-clean-source` refuses archives and dirty checkouts before building
+and checks source cleanliness again before writing candidate metadata. CI uses
+this flag so a green candidate always has a verified clean checkout identity.
+
+The commands below expose the same components for diagnosis; the helper is
+the normal path. Real-stack/full-system testing remains separate.
+
 ## Native CMake cross-build
 
 The Amiga build compiles and links C sources directly with AmigaPorts GCC.

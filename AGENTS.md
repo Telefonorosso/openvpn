@@ -1,5 +1,24 @@
 # Agent guide
 
+## First actions for a new agent
+
+Read [docs/AGENT-START.md](docs/AGENT-START.md) for the short execution path,
+change-to-test table and completion requirements. Use `python3 tools/build.py`
+for the tested local host/cross/volamos/package path; use `--host-only` or
+`--cross-only` for the CI modes. It resolves SDK paths and records source
+identity. Builds from a dirty tree or an archive are explicitly unverified.
+
+The maintainer starts in [MAINTAINER.md](MAINTAINER.md). The private operator
+procedure is [docs/PRIVATE-MIAMI.md](docs/PRIVATE-MIAMI.md). Release actions follow
+[docs/RELEASING.md](docs/RELEASING.md). Evidence lives in
+[docs/HANDOFF.md](docs/HANDOFF.md) and `ci/validation-baseline.json`; a historical
+native baseline is never an automatic pass for new runtime code. Verify source,
+branch, permissions and user authorization before acting. Start with the edited
+component and this guide; do not read the whole imported upstream tree by default.
+
+Initial imports and subtree updates must retain merge history. Use a merge
+commit; do not squash/rebase away subtree metadata or its parent graph.
+
 ## Project and scope
 
 This is Francesco's AmigaOS 68k OpenVPN port. `Telefonorosso/openvpn` is the

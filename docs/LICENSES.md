@@ -14,5 +14,9 @@
 - AmiSSL v5 Developer SDK, AmigaOS NDK, SANA-II header packages and cross
   compiler are required external dependencies and **are not included**.
 
+Binary packages carry the OpenVPN notices in `docs/openvpn/` and the device
+notices/license in `docs/vpn-device/`. Source repository paths above identify
+the original files; the installed package locations are those two folders.
+
 Do not remove upstream notices or assume all parts of this combined release
 have a single license. This notice is a summary, not legal advice.

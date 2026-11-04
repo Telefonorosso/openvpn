@@ -6,6 +6,10 @@ The initial subtree is the official `v2.6.23` tag, commit
 commits layer the Amiga port over that baseline. The rest of this repository
 (vpn.device, stack scripts and packaging) is maintained by the Amiga project.
 
+Preserve the initial import and future subtree merge history with normal merge
+commits. Do not squash/rebase subtree imports into a flat replacement: the parent
+graph and `git-subtree-split` metadata are inputs to later pull/split operations.
+
 ## Importing another upstream release
 
 Work on a branch and choose the intended version explicitly. The example tag

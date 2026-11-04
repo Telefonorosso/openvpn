@@ -8,6 +8,14 @@
 
 Native IPv4 OpenVPN client using **AmiSSL v5**, the TCP/IP stack's **`bsdsocket.library`**, and the SANA-II **`vpn.device`**. TLS and data-channel encryption run on the Amiga, without a Linux-side VPN daemon or proxy. Supports standard `.ovpn` profiles, UDP, TLS 1.3, AES-GCM, `tls-crypt`, hostname resolution and AmigaDOS lifecycle scripts.
 
+## New to GitHub or taking over maintenance?
+
+Start with [the maintainer quick start](MAINTAINER.md). It covers the first
+merge, automatic builds, downloading the actual Amiga package and releases.
+Agents start in [AGENTS.md](AGENTS.md) and [the short execution guide](docs/AGENT-START.md).
+[The handoff record](docs/HANDOFF.md) distinguishes tested core evidence from
+later commits and documents the private Miami requirements.
+
 ## Repository layout and development
 
 This repository is the authoritative home of Francesco's Amiga port. Changes
@@ -24,7 +32,7 @@ prebuilt/beta2/    one unchanged copy of each existing downloadable binary
 docs/              upstream workflow, provenance and historical port notes
 ```
 
-See [the repository guide](docs/REPOSITORY.md), [upstream update workflow](docs/UPSTREAM.md)
+See [the repository guide](docs/REPOSITORY.md), [upstream update workflow](docs/UPSTREAM.md),
 [build and CI commands](docs/BUILD.md), [agent guidance](AGENTS.md)
 and [installation file locations](docs/INSTALL.md). Existing binary provenance
 is recorded [beside the retained binaries](prebuilt/beta2/README.md).

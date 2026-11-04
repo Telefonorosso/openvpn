@@ -16,6 +16,8 @@
   route/DNS hooks and reconnect against an isolated local server. Keep other
   stacks' end-to-end gaps and failing AROS experiments explicit.
 - Add checksum-pinned volamos target FIFO sanitizer/dirty-heap checks on CI.
+- Add a tested one-command build/package entrypoint, explicit clean/dirty/archive
+  source identity, and maintainer/agent handoff and release instructions.
 - Document development, upstream updates, versioning and test coverage limits.
 
 This is an unreleased port revision, not a new OpenVPN upstream version.

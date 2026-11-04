@@ -76,6 +76,11 @@ registered keys, ROMs or copied system libraries are committed or uploaded.
 
 ### CI access and coverage
 
+[The authorized private operator procedure](../../docs/PRIVATE-MIAMI.md) covers
+asset prerequisites, repository variables, guarded one-job pickup, exact-SHA
+verdicts and cleanup without relying on the original chat.
+
+
 Public PR CI compiles the Miami probe along with the other Amiga targets.
 The complete runtime job is explicitly enabled using **Run workflow** with
 `miami_native=true` on a reviewed source ref. Configure repository variables

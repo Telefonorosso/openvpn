@@ -54,9 +54,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - run: cmake -S . -B build/host -DAOVPN_HOST_TESTS_ONLY=ON -DCMAKE_BUILD_TYPE=Release
-      - run: cmake --build build/host --parallel 2
-      - run: ctest --test-dir build/host --output-on-failure --output-junit host-results.xml
+      - name: Maintainer entrypoint (host regressions)
+        run: python3 tools/build.py --host-only
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -77,28 +76,14 @@ jobs:
         with:
           path: build/dependencies
           key: amiga-dependencies-linux-${{ hashFiles('ci/dependencies.json') }}
-      - name: Fetch pinned GCC and AmiSSL SDK
-        run: python3 tools/fetch-deps.py --with-volamos --github-env "$GITHUB_ENV"
-      - name: Configure native CMake targets
-        run: cmake -S . -B build/amiga -DCMAKE_TOOLCHAIN_FILE=cmake/amigaports.cmake -DCMAKE_BUILD_TYPE=Release
-      - run: cmake --build build/amiga --parallel 2
-      - name: Target FIFO with volamos sanitizer and dirty heap
-        run: python3 tools/volamos-smoke.py --runtime "$VOLAMOS_EXECUTABLE" --program build/amiga/bin/ring_smoke --results build/volamos-results
+      - name: Maintainer entrypoint (Amiga build, volamos and packages)
+        run: python3 tools/build.py --cross-only --require-clean-source
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: volamos-results
           path: build/volamos-results/
           if-no-files-found: warn
-      - name: Package rebuilt binaries and stack integrations
-        run: |
-          cmake --install build/amiga --prefix build/package
-          cpack --config build/amiga/CPackConfig.cmake -B build/packages
-          cp build/dependencies/provenance.json build/packages/dependency-provenance.json
-          git rev-parse HEAD > build/packages/SOURCE_COMMIT
-          cp build/packages/SOURCE_COMMIT build/amiga/bin/SOURCE_COMMIT
-          cd build/packages
-          sha256sum ./*.zip ./*.tar.gz > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: amiga-binaries
@@ -111,6 +96,7 @@ jobs:
             build/packages/*.zip
             build/packages/*.tar.gz
             build/packages/dependency-provenance.json
+            build/packages/source-provenance.json
             build/packages/SOURCE_COMMIT
             build/packages/SHA256SUMS
           if-no-files-found: error

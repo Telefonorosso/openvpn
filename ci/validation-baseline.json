@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "role": "Historical executable baseline; never represents an untested later SHA",
+  "core_source_commit": "ef95ec51f40022b664a03d3f37baf09f578c4f31",
+  "pr_ci": {
+    "url": "https://github.com/tinic/openvpn/actions/runs/41765138553",
+    "successful_jobs": 5,
+    "private_miami_job": "skipped; not a pass"
+  },
+  "full_native_ci": {
+    "url": "https://github.com/tinic/openvpn/actions/runs/41765143907",
+    "successful_jobs": 6,
+    "source_commit": "ef95ec51f40022b664a03d3f37baf09f578c4f31",
+    "miami_returncode": 0,
+    "encrypted_udp_cycles": 2,
+    "route_restoration": true,
+    "dns_restoration": true,
+    "normal_scripts_unchanged": true
+  },
+  "versions": {
+    "openvpn": "2.6.23",
+    "gcc": "16.2-rc23",
+    "amissl_sdk_and_runtime": "5.27",
+    "volamos": "0.15",
+    "roadshow_demo": "1.15",
+    "miami": "1.0c",
+    "kickstart": "3.1",
+    "mui": "3.8"
+  },
+  "core_binaries": {
+    "/bin/openvpn": {
+      "bytes": 807112,
+      "sha256": "10ec107eee658b3ed052bb593f6ffe03e24c920d7946a35969af43bcd86836cc"
+    },
+    "/Devs/Networks/vpn.device": {
+      "bytes": 6708,
+      "sha256": "45ec071a04f821b4243f3b0ea872ba0c9da0280c57ba78242a2e5147587bb42a"
+    },
+    "/bin/RequestString": {
+      "bytes": 3776,
+      "sha256": "89a8865d1332620885a28834d8648a8fa3b01039e75048532bb4ef9c32008652"
+    }
+  },
+  "limits": [
+    "Controlled IPv4 UDP fixture; not every provider or cipher",
+    "Roadshow socket/device test only; encrypted Roadshow lifecycle untested",
+    "Public full AROS/Miami experiment failed shutdown; not supported evidence",
+    "No IPv6, all-MTU, performance or abnormal-exit qualification",
+    "Private Miami runtime and registration assets are not redistributed; runner must be provided by an authorized operator"
+  ],
+  "infrastructure_state": "One-job validation runner and temporary variables removed after testing. No standing private runner is promised."
+}
