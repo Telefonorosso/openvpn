@@ -6,6 +6,7 @@ One shared client and driver, per-stack hooks, tracked official OpenVPN subtree,
 CMake build, pinned dependencies, versioning, candidate packaging and CI. The
 maintainer website path starts in [MAINTAINER.md](../MAINTAINER.md); a new agent
 starts in [AGENTS.md](../AGENTS.md) and [AGENT-START.md](AGENT-START.md).
+For an independent browser-only review, use [the copy/paste brief](REVIEW.md).
 
 The original active import preserved 550 source/support blobs. Historical BETA2
 binaries and scripts keep their bytes. The large PR includes official OpenVPN

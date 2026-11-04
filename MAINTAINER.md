@@ -11,7 +11,9 @@ packages. You can use the GitHub website for normal review and downloads.
    changes are the layout, CMake, CI and guides; the existing stack scripts and
    historical binaries are preserved. [Validation evidence](docs/HANDOFF.md)
    explains exactly what was tested.
-2. Review the proposal. The contributor marks it ready after validation; if
+2. Review the proposal. [Copy this independent review request](docs/REVIEW.md)
+   into your usual assistant; it includes the PR link and needs no chat history.
+   The contributor marks it ready after validation; if
    it still shows Draft, ask them to finish that step. If GitHub displays a workflow approval banner, use **Approve and run** after
    reviewing it. An absent banner is not an error: fork approval settings vary.
 3. When satisfied, use **Create a merge commit**, then confirm the merge. This
