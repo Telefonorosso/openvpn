@@ -19,12 +19,14 @@ python3 tests/stacks/fetch-roadshow.py
 python3 tests/stacks/run-roadshow.py --emulator /path/to/copperline --bin-dir build/amiga/bin --demo-archive build/stack-dependencies/Roadshow-Demo-1.15.lha --results build/roadshow-results
 ```
 
-Install `lhasa`/`lha` first. The fetcher uses the public demo linked by the
-[publisher](http://roadshow.apc-tcp.de/download-en.php), served by
-[Amiga Future](https://www.amigafuture.de/app.php/dlext/details?df_id=3657), and
-verifies the archive SHA-256 in `ci/stack-dependencies.json`. A changed form,
-missing input or checksum mismatch fails; there is no alternate unchecked
-source. Each run uses a temporary private directory, never a host installation.
+Install `lhasa`/`lha` first. The demo originates from the
+[publisher](http://roadshow.apc-tcp.de/download-en.php). CI fetches the
+byte-identical demo in the [Emu68 Imager distribution](https://github.com/mja65/Emu68-Imager-Software),
+whose [instructions](https://mja65.github.io/Emu68-Imager/instructions.html) document permission to include it. Both its Git commit and the original
+publisher archive's SHA-256 are pinned in `ci/stack-dependencies.json`.
+This avoids the publisher's interactive PHP download form, which intermittently
+returned HTML to GitHub runners. Missing inputs or checksum mismatches fail;
+there is no unchecked fallback. Each run uses a temporary private directory, never a host installation.
 Only logs, hashes and timeout screenshots are retained. Demo libraries are not
 committed, packaged or uploaded as artifacts. Do not substitute a registered
 archive, keys or live network configuration into public CI.
