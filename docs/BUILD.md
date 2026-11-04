@@ -1,0 +1,159 @@
+# Build and CI
+
+## One-command build
+
+Install Python 3.12+, CMake 3.24+ (with CTest and CPack), a native C compiler/build
+tool and an LHA reader (`lhasa` on Linux; Homebrew `lha` on macOS). Current pinned
+cross-build assets support Linux x86_64 and macOS Apple Silicon. For Windows or
+Intel Mac, use the hosted Linux workflow described in [MAINTAINER.md](../MAINTAINER.md).
+Then run from the source repository:
+
+```sh
+python3 tools/build.py
+```
+
+The helper runs the existing host regressions, fetches/verifies pinned inputs,
+resolves compiler/SDK paths, builds Amiga targets, runs the existing volamos FIFO
+memory check and creates checked packages. It does not install onto an Amiga,
+create tags or publish. `--host-only` and `--cross-only` are the CI entrypoints;
+`--jobs N` controls parallel compilation. Outputs are under `build/`.
+
+`build/packages/SOURCE_COMMIT` is a clean checkout's full commit. Dirty builds
+are marked `COMMIT+dirty`; archives are marked `UNVERIFIED-SOURCE-ARCHIVE`.
+`source-provenance.json` records that distinction. A parent repository's Git
+identity is never substituted. Use current-version archives in `SHA256SUMS`;
+older local package files are preserved, not silently deleted. CI candidates
+come from fresh checkout jobs. See [the release procedure](RELEASING.md).
+
+`--require-clean-source` refuses archives and dirty checkouts before building
+and checks source cleanliness again before writing candidate metadata. CI uses
+this flag so a green candidate always has a verified clean checkout identity.
+
+The commands below expose the same components for diagnosis; the helper is
+the normal path. Real-stack/full-system testing remains separate.
+
+## Native CMake cross-build
+
+The Amiga build compiles and links C sources directly with AmigaPorts GCC.
+It does not launch an Autotools or Makefile build. The port's existing
+`openvpn_SOURCES` manifest supplies the OpenVPN source inventory; CMake
+compile/link probes generate the target configuration header.
+
+Dependencies are pinned in `ci/dependencies.json`: AmigaPorts GCC
+`v16.2-rc23` (built from the AmigaPorts GCC project), AmiSSL Developer SDK
+`5.27`, and a specific Copperline source commit. Archive SHA-256 checks are
+mandatory. The SDK supplies headers and stubs; OpenVPN uses the user's
+installed AmiSSL libraries at runtime. No AmiSSL/OpenSSL library is built.
+
+On Linux install CMake, a C build tool, Python 3.12+, and `lhasa`; on macOS use
+the corresponding Homebrew tools including `lha`. Download the pinned inputs:
+
+```sh
+python3 tools/fetch-deps.py
+```
+
+Set `AMIGA_GCC_ROOT` and `AMISSL_SDK` to the paths printed by that command, then:
+
+```sh
+cmake -S . -B build/amiga -DCMAKE_TOOLCHAIN_FILE=cmake/amigaports.cmake -DCMAKE_BUILD_TYPE=Release
+cmake --build build/amiga --parallel
+cmake --install build/amiga --prefix build/package
+cpack --config build/amiga/CPackConfig.cmake -B build/packages
+```
+
+Targets are `openvpn`, `vpn_device` (output `vpn.device`), `anxdns`,
+`amitcpresolver`, and the guest smoke programs. The client/helpers target
+68020; the freestanding device and smoke programs target 68000. The unchanged
+historical `RequestString` utility accompanies the stack scripts in packages;
+it is not presented as a rebuilt target. ZIP and tar.gz packages contain fresh
+client/driver/helper binaries, stack integrations and license notices.
+
+## Host regressions
+
+```sh
+cmake -S . -B build/host -DAOVPN_HOST_TESTS_ONLY=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build/host --parallel
+ctest --test-dir build/host --output-on-failure
+```
+
+These execute the existing packet-ring, ICMP and mocked-Exec driver tests.
+Assertions remain enabled in release builds. Host tests do not establish the
+Amiga ABI or interoperability with a TCP/IP stack.
+
+## Fast target checks with volamos
+
+`python3 tools/fetch-deps.py --with-volamos` also fetches checksum-pinned
+volamos 0.15 for the host platform and prints `VOLAMOS_EXECUTABLE`. Run:
+
+```sh
+python3 tools/volamos-smoke.py --runtime /path/to/volamos --program build/amiga/bin/ring_smoke --results build/volamos-results
+```
+
+The Linux cross-build job runs the real target FIFO assertions with
+`--cpu 68020 --sanitize --dirty-heap`, retaining the actual return code, binary
+hashes and logs. A sanitizer exit is a failure. This needs no Kickstart or
+Workbench and complements native host regressions and full-system tests.
+volamos also has opt-in host-backed sockets and real-library loading, but its
+single-process API model does not establish Miami/MUI, concurrent ARexx hosts,
+SANA-II hardware or production lifecycle behavior. Keep those tests in the
+real-stack emulator lane; do not relabel a volamos pass as Miami coverage.
+
+## Copperline guest smoke tests
+
+CI builds the pinned Copperline commit with its existing optimized `ci` profile
+(no fat LTO), its `frontend,net-nat,control` features and bundled
+open-source AROS ROMs. It uses no proprietary Kickstart, Workbench image, VPN
+credential or external VPN service. Copy `assets/aros/` from that exact
+Copperline checkout beside its binary and create `portable.txt` there to keep
+the generated guest volumes in the build directory. For an existing source directory at the pinned commit:
+
+```sh
+cargo build --manifest-path /path/to/Copperline/Cargo.toml --profile ci --locked --no-default-features --features frontend,net-nat,control --bin copperline --target-dir build/copperline-target
+mkdir -p build/copperline-target/ci/aros
+cp /path/to/Copperline/assets/aros/* build/copperline-target/ci/aros/
+touch build/copperline-target/ci/portable.txt
+```
+
+Then run:
+
+```sh
+python3 tools/emulator-smoke.py --emulator /path/to/copperline --bin-dir build/amiga/bin --results build/emulator-results
+```
+
+The tests execute freshly cross-built HUNK programs. The FIFO test exercises
+the C runtime and ring assertions. The device test invokes the existing
+`AOVPN-VPNProbe` checks: device query, both transfer directions, buffered
+delivery, and pending-read abort. Its freestanding DOS-only entry/logging
+avoids depending on `mathieeedoubbas.library`, which the minimal AROS ROM
+does not include. It does not replace or mock the driver's Exec/SANA-II calls.
+`RunProg:` supplies the test's private file mount and driver path. An explicit
+HUNK entry branch precedes any NDK-generated helper code.
+
+Copperline's actual guest return code is required, and the device's fresh
+guest log must contain the completion marker. A missing binary, ROM, return
+marker, nonzero result or timeout fails the job. Logs, hashes and timeout
+screenshots are retained as artifacts. These smoke tests do **not** cover an
+encrypted OpenVPN session, routing, DNS restoration or all supported stacks.
+
+## Real TCP/IP stack compatibility
+
+The same CI emulator job also runs a real Roadshow 1.15 demo socket/interface
+check against the freshly built shared driver. See `tests/stacks/README.md` for
+commands, the pinned public test inputs, exact coverage and the complete
+MiamiDX test using an authorized AmigaOS/MUI runtime. The socket checks do not
+establish encryption. The separate registered private Miami lane runs the
+client against a local encrypted server, production hooks and reconnect checks
+in an isolated Linux network namespace; see the prerequisites in that README.
+
+## GitHub workflow and releases
+
+Every PR and main push runs Linux/macOS host regressions, a Linux AmigaPorts
+cross-build, and the Copperline guest smoke job. Cross-build artifacts include
+the source commit, dependency provenance and package SHA-256 checksums.
+The version check also validates `VERSION` against upstream `version.m4`;
+release tags must equal `v` followed by `VERSION`. See `AGENTS.md` for revision
+and changelog rules. Version-tag pushes create a **draft** release only after
+the version, both host, cross-build and guest jobs pass. A separate explicitly requested native Miami job uses
+a private licensed runtime; ordinary PR skips are not runtime passes.
+The maintainer reviews and publishes it; this change does not push a release tag
+or publish a release. Francesco's repository remains the authoritative project.

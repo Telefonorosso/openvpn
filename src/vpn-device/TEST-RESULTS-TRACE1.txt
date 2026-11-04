@@ -1,0 +1,12 @@
+POC2 TRACE1 — host-model verification
+2026-10-21
+
+PASS: make test (ring test, actual device-source host model, exact upstream helper reuse, syntax checks).
+PASS: 0x0021 CMD_READ remains async, supports 15 concurrent reads and Exec NT_MESSAGE behavior.
+PASS: 0x0021 CMD_WRITE to 0x0800 peer and reverse delivery tests.
+PASS: TRACE1 snapshot contains chronological `READ-QUEUED` for PPP 0x0021 and `S2_OFFLINE` event; sequence monotonic.
+PASS: earlier AOVPN-Diag read-only counters remain unchanged.
+
+NOT TESTED: m68k-amigaos-gcc cross-compile (not installed in this container).
+NOT TESTED: MiamiDX/Exec integration on Amiga 600 hardware.
+NOT CLAIMED: that TRACE1 fixes the DOWN issue; it only records it.

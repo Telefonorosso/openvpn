@@ -1,0 +1,19 @@
+/* MiamiDX - Toggle ptp0 */
+
+OPTIONS RESULTS
+
+IF ~SHOW('P', 'MIAMI.1') THEN EXIT 10
+
+ADDRESS 'MIAMI.1'
+
+'ISONLINE ptp0'
+
+IF RC = 1 THEN DO
+    'OFFLINE ptp0'
+END
+ELSE IF RC = 0 THEN DO
+    'ONLINE ptp0'
+END
+ELSE EXIT 10
+
+EXIT RC

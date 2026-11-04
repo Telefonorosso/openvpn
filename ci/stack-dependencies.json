@@ -1,0 +1,42 @@
+{
+  "roadshow": {
+    "version": "1.15 DEMO",
+    "url": "https://raw.githubusercontent.com/mja65/Emu68-Imager-Software/6616209368da528ae2233d4ce757e9b5dd0b7d03/Assets/AmigaFiles/LocalAmigaPackages/Roadshow-Demo.lha",
+    "archive": "Roadshow-Demo-1.15.lha",
+    "sha256": "890d322ff92c2395c609bb1316ea755ff4c6124ae84a4605680f2940553d2ac8",
+    "publisher_url": "https://www.amigafuture.de/app.php/dlext/details?df_id=3657",
+    "distribution_repository": "https://github.com/mja65/Emu68-Imager-Software",
+    "distribution_commit": "6616209368da528ae2233d4ce757e9b5dd0b7d03"
+  },
+  "miami": {
+    "version": "1.0c",
+    "main": {
+      "url": "https://aminet.net/comm/tcp/MiamiDx10cmain.lha",
+      "archive": "MiamiDx10cmain.lha",
+      "sha256": "25b89bf4dcb60eceb6b2c956431ab0c3bbeab72844743a1bf09df0aff7161709"
+    },
+    "gui": {
+      "url": "https://aminet.net/comm/tcp/MiamiDx10c-MUI.lha",
+      "archive": "MiamiDx10c-MUI.lha",
+      "sha256": "2edd97484489665388163b01263f9db1813be289dea5051d5cff8cbdb42e0cf7"
+    }
+  },
+  "amissl_runtime": {
+    "version": "5.27",
+    "url": "https://github.com/jens-maus/amissl/releases/download/5.27/AmiSSL-5.27-OS3.lha",
+    "sha256": "722476cfbf21c0caf6ff4a77e32ee8baf67d3045db0e9ff2ccce6c782bed5847"
+  },
+  "openvpn_server": {
+    "version": "2.6.14-1+deb13u3",
+    "packages": [
+      {
+        "url": "https://deb.debian.org/debian/pool/main/o/openvpn/openvpn_2.6.14-1+deb13u3_amd64.deb",
+        "sha256": "8952d637f0634589d733ea18e4fc36d0556dee2b38f50f963852328c2766feca"
+      },
+      {
+        "url": "https://deb.debian.org/debian/pool/main/p/pkcs11-helper/libpkcs11-helper1t64_1.30.0-1+b1_amd64.deb",
+        "sha256": "261e0fd80cad9c5478cb702cf77b1b3494ddfde4ad14f7a0531f4781b1c84b81"
+      }
+    ]
+  }
+}

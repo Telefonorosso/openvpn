@@ -1,0 +1,262 @@
+name: Build and test
+on:
+  push:
+    branches: ['main', 'codex/**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      miami_native:
+        description: 'Run reviewed code on the configured licensed AmigaOS/MUI test runner'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  version:
+    name: Version and release tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check port and upstream versions
+        run: python3 tools/check-version.py
+      - name: Validate private Miami lane configuration
+        if: github.event_name == 'workflow_dispatch' && inputs.miami_native
+        env:
+          RUNNER_LABEL: ${{ vars.MIAMI_TEST_RUNNER }}
+          GUEST_SYSTEM: ${{ vars.MIAMI_GUEST_SYSTEM }}
+          GUEST_ROM: ${{ vars.MIAMI_ROM }}
+          KEYS_DIR: ${{ vars.MIAMI_KEYS_DIR }}
+          NETWORK_DEVICE: ${{ vars.MIAMI_NETWORK_DEVICE }}
+        run: |
+          test -n "$RUNNER_LABEL" && test -n "$GUEST_SYSTEM" && test -n "$GUEST_ROM" && test -n "$KEYS_DIR" && test -n "$NETWORK_DEVICE" || {
+            echo '::error::Configure MIAMI_TEST_RUNNER, MIAMI_GUEST_SYSTEM, MIAMI_ROM, MIAMI_KEYS_DIR and MIAMI_NETWORK_DEVICE first'
+            exit 1
+          }
+      - name: Check release tag
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 tools/check-version.py --tag "$RELEASE_TAG"
+
+  host:
+    needs: version
+    name: Host regressions (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Maintainer entrypoint (host regressions)
+        run: python3 tools/build.py --host-only
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: host-results-${{ matrix.os }}
+          path: build/host/host-results.xml
+          if-no-files-found: error
+
+  cross:
+    needs: version
+    name: AmigaPorts GCC cross-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install archive reader
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends lhasa
+      - uses: actions/cache@v4
+        with:
+          path: build/dependencies
+          key: amiga-dependencies-linux-${{ hashFiles('ci/dependencies.json') }}
+      - name: Maintainer entrypoint (Amiga build, volamos and packages)
+        run: python3 tools/build.py --cross-only --require-clean-source
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: volamos-results
+          path: build/volamos-results/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        with:
+          name: amiga-binaries
+          path: build/amiga/bin/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-candidate
+          path: |
+            build/packages/*.zip
+            build/packages/*.tar.gz
+            build/packages/dependency-provenance.json
+            build/packages/source-provenance.json
+            build/packages/SOURCE_COMMIT
+            build/packages/SHA256SUMS
+          if-no-files-found: error
+
+  emulator:
+    name: Copperline guest smoke tests
+    needs: cross
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Copperline build dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev lhasa
+      - name: Fetch pinned Roadshow test input
+        run: python3 tests/stacks/fetch-roadshow.py
+      - name: Read pinned emulator version
+        id: pins
+        run: |
+          python3 - <<'PY'
+          import json, os
+          pins = json.load(open('ci/dependencies.json'))['copperline']
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write('commit=' + pins['commit'] + '\n')
+              out.write('rust=' + pins['rust'] + '\n')
+          PY
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ steps.pins.outputs.rust }}
+      - uses: actions/checkout@v4
+        with:
+          repository: tinic/Copperline
+          ref: ${{ steps.pins.outputs.commit }}
+          path: build/copperline-source
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            build/copperline-target
+          key: copperline-linux-${{ steps.pins.outputs.commit }}-${{ steps.pins.outputs.rust }}-frontend-net-nat-control-ci
+      - name: Build the pinned emulator
+        run: |
+          cargo build --manifest-path build/copperline-source/Cargo.toml --profile ci --locked --no-default-features --features frontend,net-nat,control --bin copperline --target-dir build/copperline-target
+          mkdir -p build/copperline-target/ci/aros
+          cp build/copperline-source/assets/aros/* build/copperline-target/ci/aros/
+          touch build/copperline-target/ci/portable.txt
+      - name: Identify emulator build for licensed tests
+        run: |
+          git -C build/copperline-source rev-parse HEAD > build/copperline-target/ci/SOURCE_COMMIT
+          cp build/copperline-source/LICENSE build/copperline-target/ci/LICENSE
+          cd build/copperline-target/ci
+          sha256sum copperline > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: copperline-linux-ci
+          path: |
+            build/copperline-target/ci/copperline
+            build/copperline-target/ci/aros/
+            build/copperline-target/ci/portable.txt
+            build/copperline-target/ci/SHA256SUMS
+            build/copperline-target/ci/SOURCE_COMMIT
+            build/copperline-target/ci/LICENSE
+          if-no-files-found: error
+      - uses: actions/download-artifact@v4
+        with:
+          name: amiga-binaries
+          path: build/amiga-bin
+      - name: Execute freshly built Amiga binaries under AROS
+        run: python3 tools/emulator-smoke.py --emulator build/copperline-target/ci/copperline --bin-dir build/amiga-bin --results build/emulator-results
+      - name: Roadshow demo socket and SANA-II integration
+        run: |
+          python3 tests/stacks/run-roadshow.py --emulator build/copperline-target/ci/copperline --bin-dir build/amiga-bin --demo-archive build/stack-dependencies/Roadshow-Demo-1.15.lha --results build/emulator-results/roadshow
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulator-results
+          path: build/emulator-results/
+          if-no-files-found: error
+
+  miami-native:
+    name: MiamiDX on licensed AmigaOS
+    if: github.event_name == 'workflow_dispatch' && inputs.miami_native
+    needs: [host, cross, emulator]
+    runs-on: ${{ vars.MIAMI_TEST_RUNNER || 'miami-runner-not-configured' }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: amiga-binaries
+          path: build/amiga-bin
+      - uses: actions/download-artifact@v4
+        with:
+          name: copperline-linux-ci
+          path: build/copperline-bin
+      - name: Verify hosted emulator and private runtime
+        env:
+          GUEST_SYSTEM: ${{ vars.MIAMI_GUEST_SYSTEM }}
+          GUEST_ROM: ${{ vars.MIAMI_ROM }}
+        run: |
+          cd build/copperline-bin
+          sha256sum --check SHA256SUMS
+          chmod +x copperline
+          test -d "$GUEST_SYSTEM/System/MUI/Libs"
+          test -f "$GUEST_ROM"
+          command -v lha
+      - name: Verify the emulator source pin
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          expected = json.loads(Path('ci/dependencies.json').read_text())['copperline']['commit']
+          actual = Path('build/copperline-bin/SOURCE_COMMIT').read_text().strip()
+          if expected != actual:
+              raise SystemExit('Emulator source pin mismatch')
+          PY
+      - name: Fetch pinned public Miami demo
+        run: python3 tests/stacks/fetch-miami.py
+      - name: Execute the real Miami stack and fresh driver
+        env:
+          GUEST_SYSTEM: ${{ vars.MIAMI_GUEST_SYSTEM }}
+          GUEST_ROM: ${{ vars.MIAMI_ROM }}
+        run: python3 tests/stacks/run-miami.py --emulator build/copperline-bin/copperline --bin-dir build/amiga-bin --main-archive build/stack-dependencies/MiamiDx10cmain.lha --gui-archive build/stack-dependencies/MiamiDx10c-MUI.lha --guest-system "$GUEST_SYSTEM" --rom "$GUEST_ROM" --results build/miami-results
+      - name: Encrypted Miami VPN and production lifecycle hooks
+        env:
+          GUEST_SYSTEM: ${{ vars.MIAMI_GUEST_SYSTEM }}
+          GUEST_ROM: ${{ vars.MIAMI_ROM }}
+          KEYS_DIR: ${{ vars.MIAMI_KEYS_DIR }}
+          NETWORK_DEVICE: ${{ vars.MIAMI_NETWORK_DEVICE }}
+        run: python3 tests/stacks/run-miami-vpn.py --emulator build/copperline-bin/copperline --bin-dir build/amiga-bin --main-archive build/stack-dependencies/MiamiDx10cmain.lha --gui-archive build/stack-dependencies/MiamiDx10c-MUI.lha --guest-system "$GUEST_SYSTEM" --rom "$GUEST_ROM" --keys-dir "$KEYS_DIR" --network-device "$NETWORK_DEVICE" --source-commit "$GITHUB_SHA" --results build/miami-vpn-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: miami-vpn-results
+          path: build/miami-vpn-results/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: miami-native-results
+          path: build/miami-results/
+          if-no-files-found: error
+
+  draft-release:
+    name: Prepare draft release on version tags
+    if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
+    needs: [version, host, cross, emulator]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-candidate
+          path: packages
+      - name: Create draft for maintainer review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" packages/* --verify-tag --draft --title "AmiOpenVPN $RELEASE_TAG" --notes "Built from $GITHUB_SHA with pinned AmigaPorts GCC. Host regressions and Copperline FIFO/device smoke tests passed. These checks do not establish full VPN interoperability. Review before publishing."

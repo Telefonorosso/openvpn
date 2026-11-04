@@ -1,0 +1,171 @@
+--- a/src/openvpn/socket.c
++++ b/src/openvpn/socket.c
+@@ -45,6 +45,149 @@
+ /* POC3 TRACE3: diagnostics only, isolated from socket operations. */
+ #define AOVPN3_TRACE(s) do { fputs("AOVPN3 " s "\n", stderr); fflush(stderr); } while (0)
+ #endif
++
++#ifdef TARGET_AMIGA
++/*
++ * POC3 FIX4 - numeric IPv4-only addrinfo provider for the isolated lab.
++ *
++ * This deliberately has no DNS or IPv6 fallback: it never calls the Amiga
++ * libc getaddrinfo() path that causes the reproducible G01/G02 crash.
++ * The same allocator owns both the addrinfo nodes and the sockaddr storage.
++ *
++ * DO NOT generalize this shim to a production VPN without adding a tested
++ * DNS implementation and checking every address-family consumer.
++ */
++int
++aovpn_amiga_getaddrinfo(const char *hostname, const char *servname,
++                         const struct addrinfo *hints, struct addrinfo **res)
++{
++    const char *p;
++    unsigned int octet[4] = {0, 0, 0, 0};
++    unsigned int port = 0;
++    struct addrinfo *ai;
++    struct sockaddr_in *sin;
++    int i;
++
++    if (!res)
++    {
++        return EAI_FAIL;
++    }
++    *res = NULL;
++
++    if (hints && hints->ai_family != AF_INET && hints->ai_family != AF_UNSPEC)
++    {
++        return EAI_FAMILY;
++    }
++    if (!hostname && !servname)
++    {
++        return EAI_NONAME;
++    }
++
++    if (hostname)
++    {
++        p = hostname;
++        /* Strict dotted-quad parser: exactly four decimal octets. */
++        for (i = 0; i < 4; ++i)
++        {
++            unsigned int v = 0;
++            int ndigits = 0;
++            while (*p >= '0' && *p <= '9')
++            {
++                v = v * 10U + (unsigned int)(*p++ - '0');
++                ++ndigits;
++                if (ndigits > 3 || v > 255U)
++                {
++                    return EAI_NONAME;
++                }
++            }
++            if (!ndigits)
++            {
++                return EAI_NONAME;
++            }
++            octet[i] = v;
++            if (i != 3)
++            {
++                if (*p != '.')
++                {
++                    return EAI_NONAME;
++                }
++                ++p;
++            }
++            else if (*p != '\0')
++            {
++                return EAI_NONAME;
++            }
++        }
++    }
++    else if (!hints || !(hints->ai_flags & AI_PASSIVE))
++    {
++        octet[0] = 127;
++        octet[3] = 1;
++    }
++
++    if (servname)
++    {
++        p = servname;
++        if (!*p)
++        {
++            return EAI_SERVICE;
++        }
++        while (*p)
++        {
++            if (*p < '0' || *p > '9')
++            {
++                return EAI_SERVICE;
++            }
++            port = port * 10U + (unsigned int)(*p++ - '0');
++            if (port > 65535U)
++            {
++                return EAI_SERVICE;
++            }
++        }
++    }
++
++    ai = (struct addrinfo *)calloc(1, sizeof(*ai));
++    if (!ai)
++    {
++        return EAI_MEMORY;
++    }
++    sin = (struct sockaddr_in *)calloc(1, sizeof(*sin));
++    if (!sin)
++    {
++        free(ai);
++        return EAI_MEMORY;
++    }
++    sin->sin_family = AF_INET;
++    sin->sin_port = htons((unsigned short)port);
++    sin->sin_addr.s_addr = htonl(((uint32_t)octet[0] << 24)
++                                 | ((uint32_t)octet[1] << 16)
++                                 | ((uint32_t)octet[2] << 8)
++                                 | (uint32_t)octet[3]);
++    ai->ai_family = AF_INET;
++    ai->ai_socktype = hints ? hints->ai_socktype : 0;
++    ai->ai_protocol = hints ? hints->ai_protocol : 0;
++    ai->ai_flags = hints ? hints->ai_flags : 0;
++    ai->ai_addrlen = sizeof(*sin);
++    ai->ai_addr = (struct sockaddr *)sin;
++    *res = ai;
++    AOVPN3_TRACE("V00 numeric IPv4 addrinfo built");
++    return 0;
++}
++
++void
++aovpn_amiga_freeaddrinfo(struct addrinfo *res)
++{
++    while (res)
++    {
++        struct addrinfo *next = res->ai_next;
++        free(res->ai_addr);
++        free(res->ai_canonname);
++        free(res);
++        res = next;
++    }
++}
++#endif /* TARGET_AMIGA */
++
+ 
+ /*
+  * Convert sockflags/getaddr_flags into getaddr_flags
+--- a/src/openvpn/syshead.h
++++ b/src/openvpn/syshead.h
+@@ -549,4 +549,16 @@
+ #define ENABLE_MEMSTATS
+ #endif
+ 
++#ifdef TARGET_AMIGA
++/* POC3 FIX4 lab-only: numeric IPv4 resolver + matching deallocator.
++ * Redirect at compile time so gc_freeaddrinfo_callback() and every cleanup
++ * path use the same allocator. System <netdb.h> was already included above.
++ */
++int aovpn_amiga_getaddrinfo(const char *hostname, const char *servname,
++                           const struct addrinfo *hints, struct addrinfo **res);
++void aovpn_amiga_freeaddrinfo(struct addrinfo *res);
++#define getaddrinfo aovpn_amiga_getaddrinfo
++#define freeaddrinfo aovpn_amiga_freeaddrinfo
++#endif
++
+ #endif /* ifndef SYSHEAD_H */

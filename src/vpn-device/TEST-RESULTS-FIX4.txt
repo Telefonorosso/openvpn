@@ -1,0 +1,8 @@
+FIX4 host validation
+====================
+make test: PASS (ring, device, ICMP, reuse integrity, compile-only NDK stubs)
+New tests: PASS FLUSH preserves ONEVENT until explicit OFFLINE
+New tests: PASS 15 queued 0x0021 RX requests receive 15 genuine peer 0x0800 writes
+Includes unchanged original AOVPN-MiamiPeer source (diagnostic).
+NOT RUN: m68k-amigaos-gcc cross-compile (toolchain absent here)
+NOT RUN: AmigaOS/MiamiDX/hardware-validation

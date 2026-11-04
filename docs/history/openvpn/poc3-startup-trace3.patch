@@ -1,0 +1,154 @@
+--- a/src/openvpn/socket.c
++++ b/src/openvpn/socket.c
+@@ -41,6 +41,10 @@
+ #include "forward.h"
+ 
+ #include "memdbg.h"
++#ifdef TARGET_AMIGA
++/* POC3 TRACE3: diagnostics only, isolated from socket operations. */
++#define AOVPN3_TRACE(s) do { fputs("AOVPN3 " s "\n", stderr); fflush(stderr); } while (0)
++#endif
+ 
+ /*
+  * Convert sockflags/getaddr_flags into getaddr_flags
+@@ -445,6 +449,9 @@
+     const char *print_hostname;
+     const char *print_servname;
+ 
++#ifdef TARGET_AMIGA
++    AOVPN3_TRACE("G00 entered openvpn_getaddrinfo");
++#endif
+     ASSERT(res);
+ 
+     ASSERT(hostname || servname);
+@@ -489,7 +496,13 @@
+         hints.ai_socktype = SOCK_STREAM;
+     }
+ 
++#ifdef TARGET_AMIGA
++    AOVPN3_TRACE("G01 before numeric getaddrinfo");
++#endif
+     status = getaddrinfo(hostname, servname, &hints, res);
++#ifdef TARGET_AMIGA
++    AOVPN3_TRACE("G02 after numeric getaddrinfo");
++#endif
+ 
+     if (status != 0) /* parse as numeric address failed? */
+     {
+@@ -560,7 +573,13 @@
+             dmsg(D_SOCKET_DEBUG,
+                  "GETADDRINFO flags=0x%04x ai_family=%d ai_socktype=%d",
+                  flags, hints.ai_family, hints.ai_socktype);
++#ifdef TARGET_AMIGA
++            AOVPN3_TRACE("G03 before fallback getaddrinfo");
++#endif
+             status = getaddrinfo(hostname, servname, &hints, res);
++#ifdef TARGET_AMIGA
++            AOVPN3_TRACE("G04 after fallback getaddrinfo");
++#endif
+ 
+             if (sig_info)
+             {
+@@ -1716,6 +1735,9 @@
+ {
+     volatile int *signal_received = sig_info ? &sig_info->signal_received : NULL;
+     struct gc_arena gc = gc_new();
++#ifdef TARGET_AMIGA
++    AOVPN3_TRACE("R00 entered resolve_remote");
++#endif
+ 
+     /* resolve remote address if undefined */
+     if (!sock->info.lsa->remote_list)
+@@ -1769,17 +1791,32 @@
+             }
+ 
+ 
++#ifdef TARGET_AMIGA
++            AOVPN3_TRACE("R01 before get_cached_dns_entry");
++#endif
+             status = get_cached_dns_entry(sock->dns_cache,
+                                           sock->remote_host,
+                                           sock->remote_port,
+                                           sock->info.af,
+                                           flags, &ai);
++#ifdef TARGET_AMIGA
++            AOVPN3_TRACE("R02 after get_cached_dns_entry");
++#endif
+             if (status)
+             {
++#ifdef TARGET_AMIGA
++                AOVPN3_TRACE("R03 before openvpn_getaddrinfo");
++#endif
+                 status = openvpn_getaddrinfo(flags, sock->remote_host, sock->remote_port,
+                                              retry, sig_info, sock->info.af, &ai);
+-            }
+-
++#ifdef TARGET_AMIGA
++                AOVPN3_TRACE("R04 after openvpn_getaddrinfo");
++#endif
++            }
++
++#ifdef TARGET_AMIGA
++            AOVPN3_TRACE("R05 resolution result returned");
++#endif
+             if (status == 0)
+             {
+                 sock->info.lsa->remote_list = ai;
+@@ -1824,12 +1861,21 @@
+         CLEAR(sock->info.lsa->actual);
+         if (sock->info.lsa->current_remote)
+         {
++#ifdef TARGET_AMIGA
++            AOVPN3_TRACE("R06 before set_actual_address");
++#endif
+             set_actual_address(&sock->info.lsa->actual,
+                                sock->info.lsa->current_remote);
++#ifdef TARGET_AMIGA
++            AOVPN3_TRACE("R07 after set_actual_address");
++#endif
+         }
+     }
+ 
+ done:
++#ifdef TARGET_AMIGA
++    AOVPN3_TRACE("R08 resolve_remote done");
++#endif
+     gc_free(&gc);
+ }
+ 
+@@ -1852,6 +1898,9 @@
+     struct link_socket *sock = c->c2.link_socket;
+     struct options *o = &c->options;
+     ASSERT(sock);
++#ifdef TARGET_AMIGA
++    AOVPN3_TRACE("S00 entered link_socket_init_phase1");
++#endif
+ 
+     const char *remote_host = o->ce.remote;
+     const char *remote_port = o->ce.remote_port;
+@@ -1948,12 +1997,24 @@
+ 
+     if (mode != LS_MODE_TCP_ACCEPT_FROM)
+     {
++#ifdef TARGET_AMIGA
++        AOVPN3_TRACE("S01 before optional resolve_bind_local");
++#endif
+         if (sock->bind_local)
+         {
+             resolve_bind_local(sock, sock->info.af);
+         }
++#ifdef TARGET_AMIGA
++        AOVPN3_TRACE("S02 before resolve_remote");
++#endif
+         resolve_remote(sock, 1, NULL, NULL);
+-    }
++#ifdef TARGET_AMIGA
++        AOVPN3_TRACE("S03 after resolve_remote");
++#endif
++    }
++#ifdef TARGET_AMIGA
++    AOVPN3_TRACE("S04 phase1 complete");
++#endif
+ }
+ 
+ static void

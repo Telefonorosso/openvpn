@@ -1,0 +1,15 @@
+set(CMAKE_SYSTEM_NAME Generic)
+set(CMAKE_SYSTEM_PROCESSOR m68k)
+set(AMIGA_GCC_ROOT "$ENV{AMIGA_GCC_ROOT}" CACHE PATH "AmigaPorts m68k-amigaos GCC installation")
+find_program(CMAKE_C_COMPILER m68k-amigaos-gcc HINTS "${AMIGA_GCC_ROOT}/bin" REQUIRED NO_DEFAULT_PATH)
+find_program(CMAKE_AR m68k-amigaos-ar HINTS "${AMIGA_GCC_ROOT}/bin" REQUIRED NO_DEFAULT_PATH)
+find_program(CMAKE_RANLIB m68k-amigaos-ranlib HINTS "${AMIGA_GCC_ROOT}/bin" REQUIRED NO_DEFAULT_PATH)
+find_program(CMAKE_STRIP m68k-amigaos-strip HINTS "${AMIGA_GCC_ROOT}/bin" REQUIRED NO_DEFAULT_PATH)
+set(CMAKE_FIND_ROOT_PATH "${AMIGA_GCC_ROOT}/m68k-amigaos")
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+# Generic disables shared-library assumptions. Probes below link real target
+# executables; no cross-compiled program is executed during configuration.
+set(CMAKE_C_FLAGS_INIT "-m68020")

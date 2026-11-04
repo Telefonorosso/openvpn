@@ -1,0 +1,198 @@
+--- a/src/openvpn/openvpn.c
++++ b/src/openvpn/openvpn.c
+@@ -64,19 +64,34 @@
+ static void
+ tunnel_point_to_point(struct context *c)
+ {
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("P00 entered tunnel_point_to_point");
++#endif
+     context_clear_2(c);
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("P01 after context_clear_2");
++#endif
+ 
+     /* set point-to-point mode */
+     c->mode = CM_P2P;
+ 
+     /* initialize tunnel instance */
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("P02 before init_instance_handle_signals");
++#endif
+     init_instance_handle_signals(c, c->es, CC_HARD_USR1_TO_HUP);
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("P03 after init_instance_handle_signals");
++#endif
+     if (IS_SIG(c))
+     {
+         return;
+     }
+ 
+     /* main event loop */
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("P04 main event loop entered");
++#endif
+     while (true)
+     {
+         perf_push(PERF_EVENT_LOOP);
+@@ -428,6 +443,7 @@
+             context_init_1(&c);
+ #ifdef TARGET_AMIGA
+             AOVPN22_TRACE("O27 after context_init_1");
++            AOVPN22_TRACE("O28 entering tunnel dispatch");
+ #endif
+ 
+             do
+--- a/src/openvpn/init.c
++++ b/src/openvpn/init.c
+@@ -4440,8 +4440,17 @@
+ void
+ init_instance_handle_signals(struct context *c, const struct env_set *env, const unsigned int flags)
+ {
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N00 before pre_init_signal_catch");
++#endif
+     pre_init_signal_catch();
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N01 before init_instance");
++#endif
+     init_instance(c, env, flags);
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N19 after init_instance");
++#endif
+     post_init_signal_catch();
+ 
+     /*
+@@ -4466,6 +4475,9 @@
+     const bool child = (c->mode == CM_CHILD_TCP || c->mode == CM_CHILD_UDP);
+     int link_socket_mode = LS_MODE_DEFAULT;
+ 
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N02 init_instance entered");
++#endif
+     /* init garbage collection level */
+     gc_init(&c->c2.gc);
+ 
+@@ -4505,8 +4517,14 @@
+     /* Resets all values to the initial values from the config where needed */
+     pre_connect_restore(&c->options, &c->c2.gc);
+ 
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N03 before next_connection_entry");
++#endif
+     /* map in current connection entry */
+     next_connection_entry(c);
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N04 after next_connection_entry");
++#endif
+ 
+     /* link_socket_mode allows CM_CHILD_TCP
+      * instances to inherit acceptable fds
+@@ -4585,6 +4603,9 @@
+         c->c2.occ_op = occ_reset_op();
+     }
+ 
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N05 before do_event_set_init");
++#endif
+     /* our wait-for-i/o objects, different for posix vs. win32 */
+     if (c->mode == CM_P2P)
+     {
+@@ -4598,6 +4619,9 @@
+     /* initialize HTTP or SOCKS proxy object at scope level 2 */
+     init_proxy(c);
+ 
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N06 after event set/proxy init; before socket allocation");
++#endif
+     /* allocate our socket object */
+     if (c->mode == CM_P2P || c->mode == CM_TOP || c->mode == CM_CHILD_TCP)
+     {
+@@ -4612,6 +4636,9 @@
+     }
+ #endif
+ 
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N07 after socket allocation; before do_init_crypto");
++#endif
+     /* init crypto layer */
+     {
+         unsigned int crypto_flags = 0;
+@@ -4628,6 +4655,9 @@
+             crypto_flags = CF_INIT_TLS_MULTI;
+         }
+         do_init_crypto(c, crypto_flags);
++#ifdef TARGET_AMIGA
++        AOVPN22_TRACE("N08 after do_init_crypto");
++#endif
+         if (IS_SIG(c) && !child)
+         {
+             goto sig;
+@@ -4662,12 +4692,18 @@
+     }
+ #endif
+ 
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N09 frame and buffers ready; before socket phase1");
++#endif
+     /* bind the TCP/UDP socket */
+     if (c->mode == CM_P2P || c->mode == CM_TOP || c->mode == CM_CHILD_TCP)
+     {
+         link_socket_init_phase1(c, link_socket_mode);
+     }
+ 
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N10 after socket phase1; before TUN");
++#endif
+     /* initialize tun/tap device object,
+      * open tun/tap device, ifconfig, run up script, etc. */
+     if (!(options->up_delay || PULL_DEFINED(options)) && (c->mode == CM_P2P || c->mode == CM_TOP))
+@@ -4691,6 +4727,9 @@
+         do_init_traffic_shaper(c);
+     }
+ 
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N11 after TUN/OCC init; before do_init_first_time");
++#endif
+     /* do one-time inits, and possibly become a daemon here */
+     do_init_first_time(c);
+ 
+@@ -4705,6 +4744,9 @@
+     /* initialise connect timeout timer */
+     do_init_server_poll_timeout(c);
+ 
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N12 before socket phase2");
++#endif
+     /* finalize the TCP/UDP socket */
+     if (c->mode == CM_P2P || c->mode == CM_TOP || c->mode == CM_CHILD_TCP)
+     {
+@@ -4719,6 +4761,9 @@
+                                 get_link_socket_info(c));
+     }
+ 
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N13 after socket phase2");
++#endif
+     /*
+      * Actually do UID/GID downgrade, and chroot, if requested.
+      * May be delayed by --client, --pull, or --up-delay.
+@@ -4747,12 +4792,18 @@
+     }
+ #endif
+ 
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N14 after init timers; before signal check");
++#endif
+     /* Check for signals */
+     if (IS_SIG(c))
+     {
+         goto sig;
+     }
+ 
++#ifdef TARGET_AMIGA
++    AOVPN22_TRACE("N15 init_instance success");
++#endif
+     return;
+ 
+ sig:
