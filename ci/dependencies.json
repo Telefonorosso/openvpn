@@ -20,5 +20,16 @@
     "commit": "640ec785072f97370ea3d89ca067b0a0a2a84b39",
     "rust": "1.99.0",
     "features": "frontend,net-nat,control"
+  },
+  "volamos": {
+    "version": "0.15",
+    "Darwin-arm64": {
+      "url": "https://github.com/sidick/volamos/releases/download/v0.15/volamos-v0.15-aarch64-apple-darwin.tar.gz",
+      "sha256": "0c7b75fc883f0ae490c68c18aa93409f5e7cd7ceebcfd4fd26a897a5a5a07ff4"
+    },
+    "Linux-x86_64": {
+      "url": "https://github.com/sidick/volamos/releases/download/v0.15/volamos-v0.15-x86_64-unknown-linux-musl.tar.gz",
+      "sha256": "6eae2d8a9fa0d8217061af51052bc4ab71b5556b957e54a5819862fa8deff396"
+    }
   }
 }

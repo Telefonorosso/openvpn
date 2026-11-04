@@ -103,6 +103,11 @@ For OpenVPN protocol changes, use appropriate upstream tests as well and record
 which were actually run. Retained upstream tests are not all registered in the
 port's CI; never claim the full upstream suite passed from three host tests.
 
+Use the pinned volamos runtime for fast target FIFO memory checks with its
+sanitizer and dirty heap (`docs/BUILD.md`). Preserve actual exit statuses;
+never suppress a sanitizer finding to green CI. Its API emulation and optional
+host sockets are separate coverage from real Miami or Roadshow operation.
+
 ## Emulators and hardware
 
 CI uses pinned Copperline with its open-source AROS ROMs, not a commercial

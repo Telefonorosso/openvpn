@@ -76,10 +76,18 @@ jobs:
           path: build/dependencies
           key: amiga-dependencies-linux-${{ hashFiles('ci/dependencies.json') }}
       - name: Fetch pinned GCC and AmiSSL SDK
-        run: python3 tools/fetch-deps.py --github-env "$GITHUB_ENV"
+        run: python3 tools/fetch-deps.py --with-volamos --github-env "$GITHUB_ENV"
       - name: Configure native CMake targets
         run: cmake -S . -B build/amiga -DCMAKE_TOOLCHAIN_FILE=cmake/amigaports.cmake -DCMAKE_BUILD_TYPE=Release
       - run: cmake --build build/amiga --parallel 2
+      - name: Target FIFO with volamos sanitizer and dirty heap
+        run: python3 tools/volamos-smoke.py --runtime "$VOLAMOS_EXECUTABLE" --program build/amiga/bin/ring_smoke --results build/volamos-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: volamos-results
+          path: build/volamos-results/
+          if-no-files-found: warn
       - name: Package rebuilt binaries and stack integrations
         run: |
           cmake --install build/amiga --prefix build/package

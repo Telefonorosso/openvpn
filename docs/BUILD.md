@@ -48,6 +48,24 @@ These execute the existing packet-ring, ICMP and mocked-Exec driver tests.
 Assertions remain enabled in release builds. Host tests do not establish the
 Amiga ABI or interoperability with a TCP/IP stack.
 
+## Fast target checks with volamos
+
+`python3 tools/fetch-deps.py --with-volamos` also fetches checksum-pinned
+volamos 0.15 for the host platform and prints `VOLAMOS_EXECUTABLE`. Run:
+
+```sh
+python3 tools/volamos-smoke.py --runtime /path/to/volamos --program build/amiga/bin/ring_smoke --results build/volamos-results
+```
+
+The Linux cross-build job runs the real target FIFO assertions with
+`--cpu 68020 --sanitize --dirty-heap`, retaining the actual return code, binary
+hashes and logs. A sanitizer exit is a failure. This needs no Kickstart or
+Workbench and complements native host regressions and full-system tests.
+volamos also has opt-in host-backed sockets and real-library loading, but its
+single-process API model does not establish Miami/MUI, concurrent ARexx hosts,
+SANA-II hardware or production lifecycle behavior. Keep those tests in the
+real-stack emulator lane; do not relabel a volamos pass as Miami coverage.
+
 ## Copperline guest smoke tests
 
 CI builds the pinned Copperline commit with its existing optimized `ci` profile

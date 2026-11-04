@@ -27,6 +27,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--cache', type=Path, default=Path('build/dependencies'))
     parser.add_argument('--github-env', type=Path)
+    parser.add_argument('--with-volamos', action='store_true', help='Also fetch the pinned CLI test runtime')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     pins = json.loads((root / 'ci/dependencies.json').read_text())
@@ -54,6 +55,18 @@ def main():
     compiler = gcc_root / 'bin/m68k-amigaos-gcc'
     version = subprocess.check_output([str(compiler), '--version'], text=True).splitlines()[0]
     result = {'AMIGA_GCC_ROOT': str(gcc_root), 'AMISSL_SDK': str(sdk_root)}
+    runtime_version = None
+    if args.with_volamos:
+        asset = pins['volamos'][key]
+        runtime_archive = download(asset, cache)
+        runtime_dir = cache / asset['sha256'][:12]
+        runtime_dir.mkdir(exist_ok=True)
+        runtime = runtime_dir / runtime_archive.name.removesuffix('.tar.gz') / 'volamos'
+        if not runtime.is_file():
+            with tarfile.open(runtime_archive) as archive:
+                archive.extractall(runtime_dir, filter='data')
+        runtime_version = subprocess.check_output([str(runtime), '--version'], text=True).strip()
+        result['VOLAMOS_EXECUTABLE'] = str(runtime)
     if args.github_env:
         with args.github_env.open('a') as out:
             for name, value in result.items():
@@ -61,7 +74,7 @@ def main():
                     raise SystemExit('Invalid dependency path')
                 out.write(name + '=' + value + '\n')
     (cache / 'provenance.json').write_text(json.dumps({'gcc': pins['gcc'][key],
-        'compiler': version, 'amissl': pins['amissl'], 'paths': result}, indent=2) + '\n')
+        'compiler': version, 'amissl': pins['amissl'], 'volamos': pins['volamos'][key] if args.with_volamos else None, 'volamos_version': runtime_version, 'paths': result}, indent=2) + '\n')
     print(json.dumps(dict(result, compiler=version), indent=2))
 
 if __name__ == '__main__':
