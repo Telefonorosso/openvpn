@@ -63,6 +63,7 @@ persist-tun
 tun-mtu 1400
 ifconfig-noexec
 route-noexec
+tmp-dir T:
 script-security 2
 up OPENVPN:Up.script
 route-up OPENVPN:RouteUp.script
