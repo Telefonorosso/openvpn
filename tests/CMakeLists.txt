@@ -19,7 +19,7 @@ else()
     target_compile_options(${target} PRIVATE -m68000 -O1 -Wall -Wextra -UNDEBUG)
     target_link_options(${target} PRIVATE -m68000)
   endforeach()
-  foreach(stack IN ITEMS roadshow miami)
+  foreach(stack IN ITEMS roadshow miami miami-vpn)
     add_executable(${stack}_smoke stacks/${stack}.c)
     target_compile_options(${stack}_smoke PRIVATE -m68020 -O1 -Wall -Wextra -Werror
       -ffreestanding -fno-builtin -fno-toplevel-reorder)

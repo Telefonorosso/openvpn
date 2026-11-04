@@ -69,14 +69,14 @@ real-stack emulator lane; do not relabel a volamos pass as Miami coverage.
 ## Copperline guest smoke tests
 
 CI builds the pinned Copperline commit with its existing optimized `ci` profile
-(no fat LTO), its `frontend,net-nat` features and bundled
+(no fat LTO), its `frontend,net-nat,control` features and bundled
 open-source AROS ROMs. It uses no proprietary Kickstart, Workbench image, VPN
 credential or external VPN service. Copy `assets/aros/` from that exact
 Copperline checkout beside its binary and create `portable.txt` there to keep
 the generated guest volumes in the build directory. For an existing source directory at the pinned commit:
 
 ```sh
-cargo build --manifest-path /path/to/Copperline/Cargo.toml --profile ci --locked --no-default-features --features frontend,net-nat --bin copperline --target-dir build/copperline-target
+cargo build --manifest-path /path/to/Copperline/Cargo.toml --profile ci --locked --no-default-features --features frontend,net-nat,control --bin copperline --target-dir build/copperline-target
 mkdir -p build/copperline-target/ci/aros
 cp /path/to/Copperline/assets/aros/* build/copperline-target/ci/aros/
 touch build/copperline-target/ci/portable.txt
@@ -108,7 +108,10 @@ encrypted OpenVPN session, routing, DNS restoration or all supported stacks.
 The same CI emulator job also runs a real Roadshow 1.15 demo socket/interface
 check against the freshly built shared driver. See `tests/stacks/README.md` for
 commands, the pinned public test inputs, exact coverage and the complete
-MiamiDX test using an authorized AmigaOS/MUI runtime. These are stack compatibility checks, not an encrypted VPN session.
+MiamiDX test using an authorized AmigaOS/MUI runtime. The socket checks do not
+establish encryption. The separate registered private Miami lane runs the
+client against a local encrypted server, production hooks and reconnect checks
+in an isolated Linux network namespace; see the prerequisites in that README.
 
 ## GitHub workflow and releases
 

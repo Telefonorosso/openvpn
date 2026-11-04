@@ -143,6 +143,11 @@ Keep stack-specific test source and instructions under `tests/stacks/`.
 The Roadshow demo test must use its pinned public archive and a fresh driver,
 not an installed stack. Never upload its extracted libraries or private image
 contents as artifacts. Miami has a repeatable licensed-runtime roundtrip/reconnect/shutdown test.
+The registered private lane additionally runs the real encrypted client and
+production lifecycle hooks in an isolated Linux network namespace; see the
+exact prerequisites and coverage in `tests/stacks/README.md`. Keep the guarded
+Miami DNS security-dialog approval tied to its reviewed runtime fixture, never
+a blind Yes keypress. Registration files and GUI diagnostics stay private.
 Its private CI job is enabled only for a manually selected reviewed ref; never
 run untrusted PR code on that host. Missing/skipped private jobs are not passes.
 The fuller AROS experiments fail shutdown and must not be relabeled as validated. See `tests/stacks/README.md` for the real-stack checks.

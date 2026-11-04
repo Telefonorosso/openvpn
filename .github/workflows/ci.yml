@@ -30,9 +30,11 @@ jobs:
           RUNNER_LABEL: ${{ vars.MIAMI_TEST_RUNNER }}
           GUEST_SYSTEM: ${{ vars.MIAMI_GUEST_SYSTEM }}
           GUEST_ROM: ${{ vars.MIAMI_ROM }}
+          KEYS_DIR: ${{ vars.MIAMI_KEYS_DIR }}
+          NETWORK_DEVICE: ${{ vars.MIAMI_NETWORK_DEVICE }}
         run: |
-          test -n "$RUNNER_LABEL" && test -n "$GUEST_SYSTEM" && test -n "$GUEST_ROM" || {
-            echo '::error::Configure MIAMI_TEST_RUNNER, MIAMI_GUEST_SYSTEM and MIAMI_ROM first'
+          test -n "$RUNNER_LABEL" && test -n "$GUEST_SYSTEM" && test -n "$GUEST_ROM" && test -n "$KEYS_DIR" && test -n "$NETWORK_DEVICE" || {
+            echo '::error::Configure MIAMI_TEST_RUNNER, MIAMI_GUEST_SYSTEM, MIAMI_ROM, MIAMI_KEYS_DIR and MIAMI_NETWORK_DEVICE first'
             exit 1
           }
       - name: Check release tag
@@ -94,6 +96,7 @@ jobs:
           cpack --config build/amiga/CPackConfig.cmake -B build/packages
           cp build/dependencies/provenance.json build/packages/dependency-provenance.json
           git rev-parse HEAD > build/packages/SOURCE_COMMIT
+          cp build/packages/SOURCE_COMMIT build/amiga/bin/SOURCE_COMMIT
           cd build/packages
           sha256sum ./*.zip ./*.tar.gz > SHA256SUMS
       - uses: actions/upload-artifact@v4
@@ -233,6 +236,19 @@ jobs:
           GUEST_SYSTEM: ${{ vars.MIAMI_GUEST_SYSTEM }}
           GUEST_ROM: ${{ vars.MIAMI_ROM }}
         run: python3 tests/stacks/run-miami.py --emulator build/copperline-bin/copperline --bin-dir build/amiga-bin --main-archive build/stack-dependencies/MiamiDx10cmain.lha --gui-archive build/stack-dependencies/MiamiDx10c-MUI.lha --guest-system "$GUEST_SYSTEM" --rom "$GUEST_ROM" --results build/miami-results
+      - name: Encrypted Miami VPN and production lifecycle hooks
+        env:
+          GUEST_SYSTEM: ${{ vars.MIAMI_GUEST_SYSTEM }}
+          GUEST_ROM: ${{ vars.MIAMI_ROM }}
+          KEYS_DIR: ${{ vars.MIAMI_KEYS_DIR }}
+          NETWORK_DEVICE: ${{ vars.MIAMI_NETWORK_DEVICE }}
+        run: python3 tests/stacks/run-miami-vpn.py --emulator build/copperline-bin/copperline --bin-dir build/amiga-bin --main-archive build/stack-dependencies/MiamiDx10cmain.lha --gui-archive build/stack-dependencies/MiamiDx10c-MUI.lha --guest-system "$GUEST_SYSTEM" --rom "$GUEST_ROM" --keys-dir "$KEYS_DIR" --network-device "$NETWORK_DEVICE" --source-commit "$GITHUB_SHA" --results build/miami-vpn-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: miami-vpn-results
+          path: build/miami-vpn-results/
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         if: always()
         with:

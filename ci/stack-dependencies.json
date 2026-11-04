@@ -20,5 +20,23 @@
       "archive": "MiamiDx10c-MUI.lha",
       "sha256": "2edd97484489665388163b01263f9db1813be289dea5051d5cff8cbdb42e0cf7"
     }
+  },
+  "amissl_runtime": {
+    "version": "5.27",
+    "url": "https://github.com/jens-maus/amissl/releases/download/5.27/AmiSSL-5.27-OS3.lha",
+    "sha256": "722476cfbf21c0caf6ff4a77e32ee8baf67d3045db0e9ff2ccce6c782bed5847"
+  },
+  "openvpn_server": {
+    "version": "2.6.14-1+deb13u3",
+    "packages": [
+      {
+        "url": "https://deb.debian.org/debian/pool/main/o/openvpn/openvpn_2.6.14-1+deb13u3_amd64.deb",
+        "sha256": "8952d637f0634589d733ea18e4fc36d0556dee2b38f50f963852328c2766feca"
+      },
+      {
+        "url": "https://deb.debian.org/debian/pool/main/p/pkcs11-helper/libpkcs11-helper1t64_1.30.0-1+b1_amd64.deb",
+        "sha256": "261e0fd80cad9c5478cb702cf77b1b3494ddfde4ad14f7a0531f4781b1c84b81"
+      }
+    ]
   }
 }

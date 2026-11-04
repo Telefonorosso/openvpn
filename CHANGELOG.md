@@ -12,7 +12,10 @@
   FIFO and SANA-II guest smoke tests, and checked draft-release packaging.
 - Add real Roadshow and MiamiDX UDP roundtrips through both SANA-II device
   units, plus Miami OFFLINE/ONLINE and shutdown checks on a licensed runtime.
-  Keep full encrypted VPN/hook coverage and failing AROS experiments explicit.
+  Add a registered private lane for encrypted client traffic, production
+  route/DNS hooks and reconnect against an isolated local server. Keep other
+  stacks' end-to-end gaps and failing AROS experiments explicit.
+- Add checksum-pinned volamos target FIFO sanitizer/dirty-heap checks on CI.
 - Document development, upstream updates, versioning and test coverage limits.
 
 This is an unreleased port revision, not a new OpenVPN upstream version.

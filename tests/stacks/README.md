@@ -97,7 +97,45 @@ Miami CI runtime. It does not establish the cause of the AROS failure or a defec
 in the AmigaOS-supported client/driver. Do not weaken the shutdown assertions to
 make this variant green.
 
-## End-to-end VPN coverage still needed
+## Encrypted Miami VPN test (registered private runtime)
+
+`run-miami-vpn.py` runs the freshly built client and shared driver, using the
+actual Miami startup, Up, RouteUp, RoutePreDown and shutdown scripts. It uses
+throwaway RSA-2048 certificates and a local OpenVPN server inside a disposable Linux
+user/network namespace. The server endpoint is outside the physical subnet,
+so the production endpoint route must keep it reachable after split-default
+routes are installed. The UDP peer answers only the assigned tunnel address;
+a cleartext host/NAT shortcut cannot satisfy the test. Distinct DNS queries
+check physical DNS before, pushed VPN DNS during, and restoration after two
+connect/disconnect cycles. The interpreted 68020 gets a 180-second TLS handshake
+window on both ends; certificate verification, EKU and TLS-crypt stay enabled.
+Both hook completion and actual guest return status
+are required; logs and route snapshots are retained.
+
+This lane requires authorized MiamiDX registration files (the demo disables
+lifecycle events and administrative utilities), an authorized OS/MUI runtime,
+and a physical Ethernet driver for the emulator. Originals remain read-only;
+private copies, generated keys and certificates are removed with the VM.
+Repository variables `MIAMI_KEYS_DIR` and `MIAMI_NETWORK_DEVICE` supply the
+private host paths in addition to the three variables above. Linux x86_64,
+`unshare -Urn`, `/dev/net/tun`, `ip`, `openssl`, `dpkg-deb` and `lha` are needed.
+Public dependency downloads happen before network isolation. No packages or
+services are installed and the host network namespace is never configured.
+
+Miami intentionally asks permission before ARexx changes its DNS database.
+The pinned Copperline control API approves only the visually verified stock
+Kickstart requester, guarded by its exact warning-text pixel digest and screen
+size. Only then does it send Intuition's documented Left-Amiga-V shortcut
+for the leftmost (Yes) choice. An unknown dialog fails; this is not a generic
+timed Yes keypress.
+Screenshots and registration banners remain private and are never artifacts.
+Theme/runtime changes require reviewing that exact dialog fixture again.
+
+```sh
+python3 tests/stacks/run-miami-vpn.py --emulator /path/to/copperline --bin-dir build/amiga/bin --main-archive build/stack-dependencies/MiamiDx10cmain.lha --gui-archive build/stack-dependencies/MiamiDx10c-MUI.lha --guest-system /path/to/authorized-system --rom /path/to/authorized-kickstart.rom --keys-dir /path/to/authorized-miami-keys --network-device /path/to/a2065.device --results build/miami-vpn-results
+```
+
+## Remaining end-to-end coverage
 
 For each supported stack, use an isolated authorized guest and a local test
 OpenVPN server with throwaway credentials to verify encrypted traffic, MTU,
