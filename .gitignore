@@ -1,0 +1,9 @@
+# Generated output; shipped historical files are tracked explicitly.
+/build/
+/dist/
+/.cache/
+__pycache__/
+*.pyc
+*.o
+*.lo
+*.la

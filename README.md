@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="boingvpn.png" alt="AmiOpenVPN logo">
+  <img src="docs/assets/boingvpn.png" alt="AmiOpenVPN logo">
 </p>
 
 # openvpn for AmigaOS - AI CODED
@@ -7,6 +7,33 @@
 **OpenVPN 2.6.23 for AmigaOS 68k.**
 
 Native IPv4 OpenVPN client using **AmiSSL v5**, the TCP/IP stack's **`bsdsocket.library`**, and the SANA-II **`vpn.device`**. TLS and data-channel encryption run on the Amiga, without a Linux-side VPN daemon or proxy. Supports standard `.ovpn` profiles, UDP, TLS 1.3, AES-GCM, `tls-crypt`, hostname resolution and AmigaDOS lifecycle scripts.
+
+## Repository layout and development
+
+This repository is the authoritative home of Francesco's Amiga port. Changes
+from contributor forks are reviewed here; a contributor fork does not define
+a separate official `vpn.device`.
+
+```text
+src/openvpn/       OpenVPN 2.6.23 subtree, with the existing Amiga port applied
+src/vpn-device/    the shared SANA-II vpn.device implementation
+src/helpers/       stack-specific DNS helper sources
+stacks/            AmiNetXDuo, AmiTCP-NG and MiamiDX scripts and configuration
+examples/          example client profiles and server configuration
+prebuilt/beta2/    one unchanged copy of each existing downloadable binary
+docs/              upstream workflow, provenance and historical port notes
+```
+
+See [the repository guide](docs/REPOSITORY.md), [upstream update workflow](docs/UPSTREAM.md)
+and [installation file locations](docs/INSTALL.md). Existing binary provenance
+is recorded [beside the retained binaries](prebuilt/beta2/README.md).
+The repository layout is not the Amiga installation layout: follow the stack's
+installation instructions when copying files to `OPENVPN:` and `DEVS:`.
+
+The `prebuilt/beta2` files retain the existing beta release while reproducible
+builds and GitHub Releases are prepared. They are not newly rebuilt from this
+commit. The separate proposed IPv6 changes have not been mixed into this
+structural change.
 
 ## Requirements
 
