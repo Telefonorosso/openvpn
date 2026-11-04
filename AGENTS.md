@@ -134,6 +134,13 @@ Never upload private keys, VPN credentials, provider profiles or private ROMs.
 Do not leave debug processes or candidate files behind; keep a candidate active
 for hands-on review when the human requests it, until that review finishes.
 
+Keep stack-specific test source and instructions under `tests/stacks/`.
+The Roadshow demo test must use its pinned public archive and a fresh driver,
+not an installed stack. Never upload its extracted libraries or private image
+contents as artifacts. Miami runtime coverage remains pending the documented
+ASL/MUI/ARexx environment; do not relabel Roadshow or shared-driver results as
+Miami validation. See `tests/stacks/README.md` for the real-stack checks.
+
 ## Versioning and releases
 
 `VERSION` is authoritative for the Amiga port: `MAJOR.MINOR.PATCH-amiga.N`.

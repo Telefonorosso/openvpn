@@ -72,7 +72,7 @@ Tunnel IP addresses must agree with the server's assigned/pushed configuration. 
 
 ## Install and configure
 
-1. Install AmiSSL v5. Copy `vpn.device` to `DEVS:` and place the executable, profile and scripts in a directory (e.g. one assigned as `OPENVPN:`).
+1. Install AmiSSL v5. Copy `vpn.device` to `DEVS:Networks/` and place the executable, profile and scripts in a directory (e.g. one assigned as `OPENVPN:`).
 2. Bring up the physical connection and configure `ptp0` on **unit 0**.
 3. Select lifecycle scripts for your TCP/IP stack and supply your provider's CA, credentials and any required client certificate/key and `tls-crypt` material.
 

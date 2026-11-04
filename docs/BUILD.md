@@ -75,6 +75,13 @@ marker, nonzero result or timeout fails the job. Logs, hashes and timeout
 screenshots are retained as artifacts. These smoke tests do **not** cover an
 encrypted OpenVPN session, routing, DNS restoration or all supported stacks.
 
+## Real TCP/IP stack compatibility
+
+The same CI emulator job also runs a real Roadshow 1.15 demo socket/interface
+check against the freshly built shared driver. See `tests/stacks/README.md` for
+commands, the pinned public test input, exact coverage and the MiamiDX runtime
+blocker. These are stack compatibility checks, not an encrypted VPN session.
+
 ## GitHub workflow and releases
 
 Every PR and main push runs Linux/macOS host regressions, a Linux AmigaPorts

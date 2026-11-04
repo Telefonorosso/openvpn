@@ -10,6 +10,8 @@
   including the existing GCC 16 errno-pointer compatibility adjustment.
 - Add Linux/macOS host regressions, a Linux cross-build, Copperline/AROS
   FIFO and SANA-II guest smoke tests, and checked draft-release packaging.
+- Add a real Roadshow demo UDP-to-SANA-II integration test; document the
+  MiamiDX ASL/runtime blocker and keep its end-to-end coverage pending.
 - Document development, upstream updates, versioning and test coverage limits.
 
 This is an unreleased port revision, not a new OpenVPN upstream version.

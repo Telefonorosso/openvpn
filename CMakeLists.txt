@@ -55,7 +55,7 @@ if(BUILD_TESTING)
 endif()
 
 install(TARGETS openvpn anxdns amitcpresolver RUNTIME DESTINATION bin)
-install(TARGETS vpn_device RUNTIME DESTINATION Devs)
+install(TARGETS vpn_device RUNTIME DESTINATION Devs/Networks)
 install(PROGRAMS prebuilt/beta2/RequestString DESTINATION bin)
 install(DIRECTORY stacks/ DESTINATION stacks)
 install(DIRECTORY examples/ DESTINATION examples)

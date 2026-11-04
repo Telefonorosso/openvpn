@@ -96,7 +96,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Copperline build dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev lhasa
       - name: Read pinned emulator version
         id: pins
         run: |
@@ -134,6 +134,10 @@ jobs:
           path: build/amiga-bin
       - name: Execute freshly built Amiga binaries under AROS
         run: python3 tools/emulator-smoke.py --emulator build/copperline-target/release/copperline --bin-dir build/amiga-bin --results build/emulator-results
+      - name: Roadshow demo socket and SANA-II integration
+        run: |
+          python3 tests/stacks/fetch-roadshow.py
+          python3 tests/stacks/run-roadshow.py --emulator build/copperline-target/release/copperline --bin-dir build/amiga-bin --demo-archive build/stack-dependencies/Roadshow-Demo-1.15.lha --results build/emulator-results/roadshow
       - uses: actions/upload-artifact@v4
         if: always()
         with:

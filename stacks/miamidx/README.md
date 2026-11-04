@@ -41,3 +41,15 @@ You will also need the following certificates and cryptographic keys (or their e
 The supplied `openvpn.miami` configuration assumes that an **EtherLink III PCMCIA Ethernet adapter** is used as the physical Internet interface.
 
 If your Amiga uses a different network adapter, you must adjust the MiamiDX configuration to match your hardware.
+
+## Source repository and new packages
+
+The original table above describes Amiga installation locations, not this
+repository's source tree. The common client is now built once from
+`src/openvpn/`, with the shared driver from `src/vpn-device/`. New packages put
+those files in `bin/openvpn` and `Devs/Networks/vpn.device`; the remaining
+Miami-specific files are in `stacks/miamidx/`. The example server configuration
+is `examples/miamidx-server.conf`, and the client example is `examples/AWS.ovpn`.
+Copy selected hooks and required utilities from `bin/` into your configured
+`OPENVPN:` directory. Historical downloads remain under `prebuilt/beta2/`.
+See `tests/stacks/README.md` for what is and is not covered by current CI.

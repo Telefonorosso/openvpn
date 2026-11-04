@@ -6,7 +6,7 @@ Neither building nor extracting a package installs anything onto an Amiga.
 | Repository file | Amiga location / use |
 | --- | --- |
 | `prebuilt/beta2/openvpn` | The existing client, e.g. `OPENVPN:openvpn` |
-| `prebuilt/beta2/vpn.device` | The existing shared driver, `DEVS:vpn.device` |
+| `prebuilt/beta2/vpn.device` | The existing shared driver, `DEVS:Networks/vpn.device` |
 | `stacks/aminetxduo/*.script` and `*.rexx` | AmiNetXDuo hook scripts in the existing OpenVPN directory |
 | `prebuilt/beta2/anxdns` | AmiNetXDuo DNS helper, alongside the hook scripts |
 | `stacks/amitcp-ng/*.script` and `*.rexx` | AmiTCP-NG hook scripts in the existing OpenVPN directory |
@@ -29,7 +29,7 @@ builds of the reorganized source. See `prebuilt/beta2/README.md` and
 ## Newly built CMake packages
 
 `bin/` contains the rebuilt client/DNS helpers and the historical RequestString
-utility; `Devs/vpn.device` is freshly built. Copy these to the corresponding
+utility; `Devs/Networks/vpn.device` is freshly built. Copy these to the corresponding
 Amiga locations above. Select **one** integration under `stacks/` and preserve
 its original filenames and assigns. `examples/` contains templates; `docs/`
 contains notices, version and changelog. There is no automatic installer and no
