@@ -51,14 +51,14 @@ Amiga ABI or interoperability with a TCP/IP stack.
 ## Copperline guest smoke tests
 
 CI builds the pinned Copperline commit with its existing optimized `ci` profile
-(no fat LTO), its `frontend` feature and bundled
+(no fat LTO), its `frontend,net-nat` features and bundled
 open-source AROS ROMs. It uses no proprietary Kickstart, Workbench image, VPN
 credential or external VPN service. Copy `assets/aros/` from that exact
 Copperline checkout beside its binary and create `portable.txt` there to keep
 the generated guest volumes in the build directory. For an existing source directory at the pinned commit:
 
 ```sh
-cargo build --manifest-path /path/to/Copperline/Cargo.toml --profile ci --locked --no-default-features --features frontend --bin copperline --target-dir build/copperline-target
+cargo build --manifest-path /path/to/Copperline/Cargo.toml --profile ci --locked --no-default-features --features frontend,net-nat --bin copperline --target-dir build/copperline-target
 mkdir -p build/copperline-target/ci/aros
 cp /path/to/Copperline/assets/aros/* build/copperline-target/ci/aros/
 touch build/copperline-target/ci/portable.txt

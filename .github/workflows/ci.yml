@@ -139,22 +139,20 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             build/copperline-target
-          key: copperline-linux-${{ steps.pins.outputs.commit }}-${{ steps.pins.outputs.rust }}-frontend-ci
+          key: copperline-linux-${{ steps.pins.outputs.commit }}-${{ steps.pins.outputs.rust }}-frontend-net-nat-ci
       - name: Build the pinned emulator
         run: |
-          cargo build --manifest-path build/copperline-source/Cargo.toml --profile ci --locked --no-default-features --features frontend --bin copperline --target-dir build/copperline-target
+          cargo build --manifest-path build/copperline-source/Cargo.toml --profile ci --locked --no-default-features --features frontend,net-nat --bin copperline --target-dir build/copperline-target
           mkdir -p build/copperline-target/ci/aros
           cp build/copperline-source/assets/aros/* build/copperline-target/ci/aros/
           touch build/copperline-target/ci/portable.txt
-      - name: Identify emulator build for optional licensed lane
-        if: github.event_name == 'workflow_dispatch' && inputs.miami_native
+      - name: Identify emulator build for licensed tests
         run: |
           git -C build/copperline-source rev-parse HEAD > build/copperline-target/ci/SOURCE_COMMIT
           cp build/copperline-source/LICENSE build/copperline-target/ci/LICENSE
           cd build/copperline-target/ci
           sha256sum copperline > SHA256SUMS
       - uses: actions/upload-artifact@v4
-        if: github.event_name == 'workflow_dispatch' && inputs.miami_native
         with:
           name: copperline-linux-ci
           path: |
