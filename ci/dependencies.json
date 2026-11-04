@@ -19,6 +19,6 @@
     "repository": "https://github.com/tinic/Copperline.git",
     "commit": "640ec785072f97370ea3d89ca067b0a0a2a84b39",
     "rust": "1.99.0",
-    "features": "frontend,net-nat"
+    "features": "frontend,net-nat,control"
   }
 }

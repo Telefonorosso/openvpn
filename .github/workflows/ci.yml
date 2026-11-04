@@ -139,10 +139,10 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             build/copperline-target
-          key: copperline-linux-${{ steps.pins.outputs.commit }}-${{ steps.pins.outputs.rust }}-frontend-net-nat-ci
+          key: copperline-linux-${{ steps.pins.outputs.commit }}-${{ steps.pins.outputs.rust }}-frontend-net-nat-control-ci
       - name: Build the pinned emulator
         run: |
-          cargo build --manifest-path build/copperline-source/Cargo.toml --profile ci --locked --no-default-features --features frontend,net-nat --bin copperline --target-dir build/copperline-target
+          cargo build --manifest-path build/copperline-source/Cargo.toml --profile ci --locked --no-default-features --features frontend,net-nat,control --bin copperline --target-dir build/copperline-target
           mkdir -p build/copperline-target/ci/aros
           cp build/copperline-source/assets/aros/* build/copperline-target/ci/aros/
           touch build/copperline-target/ci/portable.txt
